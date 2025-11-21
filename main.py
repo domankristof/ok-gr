@@ -1,12 +1,26 @@
 import io
 import pandas as pd
 import streamlit as st
-from core import analysis
 import os
+
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# ----------------------------
+# Load environment variables (API Key)
+# ----------------------------
+load_dotenv()
+
+# ----------------------------
+# Create OpenAI client
+# ----------------------------
+client = OpenAI(api_key=os.getenv("OPEN_AI_KEY"))
+
 
 # ----------------------------
 # Page & Theme
 # ----------------------------
+# Page Config
 st.set_page_config(
     page_title="OK GR — AI Race Coach",
     page_icon="🏁",
@@ -111,7 +125,7 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
 }
 
 .stButton>button {
-    background-color: var(--neon);
+    background-color: var(--accent);
     color: white;
     font-weight: 700;
     border-radius: 8px;
@@ -141,27 +155,24 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+
+
+
 #Divider
 st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-
 #---------------------------
 # Get Started Button
 col1, col2, col3 = st.columns([1,2,1])
 with col2:
         if st.button("🚀 Get Started - Upload Your Data", type="primary"):
-          st.switch_page("ok-gr/pages/data_upload.py")
+          st.switch_page("pages/data_upload.py")
+
+
+
 
 # ----------------------------
 # Footer
 # ----------------------------
-
-# Debug: Check current working directory and files
-st.write("Current working directory:", os.getcwd())
-st.write("Files in current directory:", os.listdir('.'))
-if os.path.exists('pages'):
-    st.write("Files in pages directory:", os.listdir('pages'))
-else:
-    st.write("Pages directory does not exist!")
 
 st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
