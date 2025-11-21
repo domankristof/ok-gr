@@ -1,19 +1,14 @@
-import io
 import pandas as pd
 import streamlit as st
 from core import analysis
-import os
 
-# ----------------------------
-# Page & Theme
-# ----------------------------
 st.set_page_config(
-    page_title="OK GR — AI Race Coach",
-    page_icon="🏁",
+    page_title="Upload Data - OK GR",
+    page_icon="📊",
     layout="centered",
 )
 
-# Custom CSS (motorsport: dark pit-wall, F1 red, neon highlights)
+# Apply the same CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap');
@@ -111,22 +106,19 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
 }
 
 .stButton>button {
-    background-color: var(--neon);
+    background-color: var(--accent);
     color: white;
     font-weight: 700;
     border-radius: 8px;
+    border: none;
 }
 .stButton>button:hover {
     background-color: #bf0500;
 }
-              
 </style>
 """, unsafe_allow_html=True)
 
-
-# ----------------------------
-# Title Cell - OK GR
-# ----------------------------
+# Header
 st.markdown("""
 <div class="banner" style="position: relative; padding-right: 50px;">
   <span class="badge">Toyota Gazoo Racing</span>
@@ -134,34 +126,90 @@ st.markdown("""
        style="position: absolute; top: 20px; right: 15px; height: 40px; width: auto;">
   <div style="text-align: left;">
     <h1 style="margin:0;font-weight:800;">OK-GR</h1>
-    <h3 style="margin:0;font-weight:500;margin-top:0px;">Your Personal AI Race Coach</h3>
-    <div style="color:#23F0C7;font-weight:400;margin-top:0px;">Ready For Your Data</div>
+    <h3 style="margin:0;font-weight:500;margin-top:0px;">Data Upload Center</h3>
+    <div style="color:#23F0C7;font-weight:400;margin-top:0px;">Upload Your Racing Data</div>
   </div>
-  <div style="color:#98A2B3;margin-top:5px;">Upload your session CSVs and lets see how we can get you on the podium. </div>
 </div>
 """, unsafe_allow_html=True)
 
-#Divider
 st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
-#---------------------------
-# Get Started Button
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-        if st.button("🚀 Get Started - Upload Your Data", type="primary"):
-          st.switch_page("ok-gr/pages/data_upload.py")
+# File Upload Section
+st.markdown("""<h4 style="font-weight:500">📁 Upload Your Racing Data</h4>""", unsafe_allow_html=True)
 
-# ----------------------------
-# Footer
-# ----------------------------
+with st.expander("📁 Upload CSVs", expanded=True):
+    st.markdown("""<h5 style="font-weight:500">Telemetry File</h5>""", unsafe_allow_html=True)
+    telemetry_file = st.file_uploader(
+        "telemetry file",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="telemetry_uploader",
+        label_visibility="hidden"
+    )
+    
+    st.markdown("""<h5 style="font-weight:500">Lap Times File</h5>""", unsafe_allow_html=True)
+    laps_file = st.file_uploader(
+        "lap times file",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="laps_uploader",
+        label_visibility="hidden"
+    )
+    
+    st.markdown("""<h5 style="font-weight:500">Weather File</h5>""", unsafe_allow_html=True)
+    weather_file = st.file_uploader(
+        "weather file",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="weather_uploader",
+        label_visibility="hidden"
+    )
+    
+    st.markdown("""<h5 style="font-weight:500">Results File</h5>""", unsafe_allow_html=True)
+    results_file = st.file_uploader(
+        "results file",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="results_uploader",
+        label_visibility="hidden"
+    )
+    
+    st.markdown("""<h5 style="font-weight:500">Sectors File</h5>""", unsafe_allow_html=True)
+    sectors_file = st.file_uploader(
+        "sectors file",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="sectors_uploader",
+        label_visibility="hidden"
+    )
+    
+    st.caption("Upload one file containing the relevant data in CSV format to each cell.")
 
-# Debug: Check current working directory and files
-st.write("Current working directory:", os.getcwd())
-st.write("Files in current directory:", os.listdir('.'))
-if os.path.exists('pages'):
-    st.write("Files in pages directory:", os.listdir('pages'))
-else:
-    st.write("Pages directory does not exist!")
+    # Submit button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🚀 Process Files & Analyze", type="primary", use_container_width=True):
+            if not any([telemetry_file, laps_file, weather_file, results_file, sectors_file]):
+                st.error("Please upload at least one file before submitting.")
+            else:
+                # Store files in session state
+                st.session_state.telemetry_file = telemetry_file
+                st.session_state.laps_file = laps_file
+                st.session_state.weather_file = weather_file
+                st.session_state.results_file = results_file
+                st.session_state.sectors_file = sectors_file
+                
+                st.success("Files submitted for processing!")
+                # You can add navigation to analysis page here later
+
+    # Display uploaded files
+    uploaded_files = [f for f in [telemetry_file, laps_file, weather_file, results_file, sectors_file] if f is not None]
+    if uploaded_files:
+        st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
+        for i, file in enumerate(uploaded_files):
+            if file is not None:
+                st.write(f"{i+1}. {file.name}")
+
 
 st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
