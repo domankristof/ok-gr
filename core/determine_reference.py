@@ -14,7 +14,8 @@ def compute_reference_laps(laps_file: str, car_number: int):
         - the 10 best laps sorted
         - Streamlit visual
     """
-
+    laps_file.seek(0)
+    
     # Load CSV
     # IMPORTANT: semicolon separator
     df = pd.read_csv(laps_file, sep=";")
