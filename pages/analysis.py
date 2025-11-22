@@ -5,13 +5,19 @@ import numpy as np
 
 from core.determine_reference import compute_reference_laps
 from core.gr_agent import run_agent
+from core.summary_key_stats import display_key_summary_stats
+
+# ----------------------------
+# Load laps file from upload page
+# ----------------------------
+laps_file = st.session_state.get("laps_file")
+
 
 st.set_page_config(
     page_title="Analysis - OK GR",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
-
 )
 
 # Apply the same CSS
@@ -122,6 +128,15 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
     background-color: #bf0500;
 }
 </style>
+            
+<style>
+.chat-container {
+    height: 70vh;      /* Adjust height */
+    overflow-y: auto;  /* Scrollable */
+    padding-bottom: 70px;  /* Space so chat input doesn't overlap */
+}
+</style>
+
 """, unsafe_allow_html=True)
 
 # ----------------------------
@@ -138,88 +153,82 @@ st.markdown("""
     </div>
     </div>
     """, unsafe_allow_html=True)
-
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 
 #Split Screen
-left,right = st.columns([1,1], gap="small",width="stretch", vertical_alignment="top")
+left,right = st.columns([1,1], gap="medium",width="stretch", vertical_alignment="top")
 
+
+# ----------------------------
 # Left Side - Session Analysis
+# ----------------------------
 with left:
     st.subheader("Data Summary")
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
+    if laps_file is None:
+        st.warning("No laps file found — upload data first.")
+    else:
+        try:
+            stats = display_key_summary_stats(laps_file, car_number=72)
+        except Exception as e:
+            st.error(f"Error displaying summary stats: {e}")
+
+
 # Right Side - Race Engineer Chat
 with right:
-
-    # ----------------------------
-    # Load laps file from upload page
-    # ----------------------------
-    laps_file = st.session_state.get("laps_file")
-
-    # ----------------------------
-    # Chat UI
-    # ----------------------------
     st.subheader("Chat with Your Engineer")
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
     ENGINEER_AVATAR = "https://i.postimg.cc/DwpKJR59/race-engineer.png"
     DRIVER_AVATAR = "https://i.postimg.cc/PfVb743X/gr-driver.png"
 
-
-    # ---------- INITIALIZE CHAT HISTORY ----------
+    # ----------------------------
+    # INIT CHAT HISTORY
+    # ----------------------------
     if "messages" not in st.session_state:
-        # Only system message remains in memory (hidden)
         st.session_state.messages = [
             {"role": "system", "content": "The laps file is available under key 'laps_file'. Use this key when calling tools."},
             {"role": "assistant", "content": "Alright mate, I've got your session data loaded. Where do you think we can find some time?"}
         ]
 
+    # ----------------------------
+    # SCROLLABLE CHAT WINDOW
+    # ----------------------------
+    chat_window = st.container()
+    with chat_window:
+        for msg in st.session_state.messages:
 
-    # ---------- RENDER CHAT HISTORY ----------
-    for msg in st.session_state.messages:
+            if msg["role"] in ["system", "tool"]:
+                continue
+            if "tool_calls" in msg:
+                continue
 
-        # Skip hidden messages
-        if msg["role"] == "system":
-            continue
-        if msg["role"] == "tool":
-            continue
-        if "tool_calls" in msg:
-            continue
+            if msg["role"] == "user":
+                st.chat_message("user", avatar=DRIVER_AVATAR).write(msg["content"])
 
-        # Render user
-        if msg["role"] == "user":
-            st.chat_message("user", avatar=DRIVER_AVATAR, width="stretch").write(msg["content"])
+            elif msg["role"] == "assistant":
+                st.chat_message("assistant", avatar=ENGINEER_AVATAR).write(msg["content"])
 
-        # Render assistant
-        elif msg["role"] == "assistant":
-            st.chat_message("assistant", avatar=ENGINEER_AVATAR, width="stretch").write(msg["content"])
-
-
-    # ---------- CHAT INPUT ----------
-    prompt = st.chat_input("Ask anything about your race data…")
+    # ----------------------------
+    # CHAT INPUT (OUTSIDE LOOP)
+    # ----------------------------
+    prompt = st.chat_input("Ask anything about your race data…", key="race_chat_input")
 
     if prompt:
-
-        # Store + display user message
         st.session_state.messages.append({"role": "user", "content": prompt})
-        st.chat_message("user", avatar=DRIVER_AVATAR).write(prompt)
 
-        # CLEAN HISTORY before sending to model
         clean_history = [
             m for m in st.session_state.messages
             if m["role"] != "tool"
         ]
 
-        # Run agent
         response = run_agent(clean_history)
 
-        # Store assistant reply
         st.session_state.messages.append({
             "role": "assistant",
             "content": response
         })
 
-        # Display assistant reply
-        st.chat_message("assistant", avatar=ENGINEER_AVATAR).write(response)
+        st.rerun()

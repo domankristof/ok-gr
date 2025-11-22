@@ -24,7 +24,7 @@ client = OpenAI(api_key=os.getenv("OPEN_AI_KEY"))
 st.set_page_config(
     page_title="OK GR — AI Race Coach",
     page_icon="🏁",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -158,20 +158,20 @@ st.markdown("""
 
 
 
+c1 = st.container(width="stretch", vertical_alignment="center",horizontal_alignment="center")
 
-#Divider
-st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-#---------------------------
-# Get Started Button
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-        if st.button("🚀 Get Started - Upload Your Data", type="primary"):
-          st.switch_page("pages/data_upload.py")
+with c1:
+  st.markdown("<div style='height:4rem'></div>", unsafe_allow_html=True)
+  if st.button("🚀 Get Started - Upload Your Data", type="primary"):
+    st.switch_page("pages/data_upload.py")
 
 
 # ----------------------------
 # Footer
 # ----------------------------
 
-st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
+c2 = st.container(width="stretch", vertical_alignment="bottom",horizontal_alignment="center")
+
+with c2:
+  st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+  st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
