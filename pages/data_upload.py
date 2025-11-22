@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
-from core import analysis
+import numpy as np
+
+from core.determine_reference import compute_reference_laps
 
 st.set_page_config(
     page_title="Upload Data - OK GR",
@@ -201,6 +203,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 
                 st.success("Files submitted for processing!")
                 # You can add navigation to analysis page here later
+                
 
     # Display uploaded files
     uploaded_files = [f for f in [telemetry_file, laps_file, weather_file, results_file, sectors_file] if f is not None]
@@ -211,5 +214,17 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 st.write(f"{i+1}. {file.name}")
 
 
+
+#For debugging:
+
+if laps_file is None:
+    st.warning("No laps file uploaded yet.")
+
+    if laps_file is not None:
+        st.success("Laps file uploaded.")
+        compute_reference_laps(laps_file, car_number=72)
+
+
+# Footer ----------------------------
 st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
