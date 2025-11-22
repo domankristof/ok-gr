@@ -79,46 +79,59 @@ race engineer talking to a driver.
 # Agent Execution Function
 # ----------------------------
 def run_agent(messages: list):
-
-    # Inject persona once
+    # Ensure persona
     if not any(m.get("role") == "system" for m in messages):
         messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     while True:
+        # Call OpenAI
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=messages,
             tools=tools,
-            tool_choice="auto",
-            response_format="json_object"
+            tool_choice="auto"
         )
 
         msg = response.choices[0].message
 
+        # Convert to simple dict
         msg_dict = {
             "role": msg.role,
             "content": msg.content,
         }
 
+        # If the assistant is requesting a tool call
         if msg.tool_calls:
             msg_dict["tool_calls"] = msg.tool_calls
 
+        # Add assistant message to chat history
         messages.append(msg_dict)
 
+        # ------------------------------
+        # HANDLE TOOL CALLS
+        # ------------------------------
         if msg.tool_calls:
             for tool_call in msg.tool_calls:
-                name = tool_call["function"]["name"]
-                args = json.loads(tool_call["function"]["arguments"])
 
+                # Extract name (NEW SDK)
+                name = tool_call.function.name
+
+                # Extract args (NEW SDK)
+                args = json.loads(tool_call.function.arguments)
+
+                # Call your Python function
                 tool_fn = tool_map[name]
                 result = tool_fn(**args)
 
+                # Append tool message IMMEDIATELY after assistant tool call
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "content": json.dumps(result)
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(result),
                 })
 
+            # After adding all tool results, continue the loop
             continue
 
+        # No tool calls → final model answer
         return msg.content

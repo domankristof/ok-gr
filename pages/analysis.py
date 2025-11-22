@@ -2,13 +2,16 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
+
 from core.determine_reference import compute_reference_laps
 from core.gr_agent import run_agent
 
 st.set_page_config(
     page_title="Analysis - OK GR",
     page_icon="📊",
-    layout="centered",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+
 )
 
 # Apply the same CSS
@@ -44,7 +47,7 @@ html, body, [data-testid="stAppViewContainer"] {
 h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
 
 .hr-line {
-  height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent);
+  height: 1px; background: linear-gradient(0deg, transparent, var(--border), transparent);
   margin: 0.8rem 0 1.2rem 0;
 }
 
@@ -121,72 +124,102 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
 </style>
 """, unsafe_allow_html=True)
 
-
 # ----------------------------
 # Header
 # ----------------------------
 st.markdown("""
-<div class="banner" style="position: relative; padding-right: 50px;">
-  <span class="badge">Toyota Gazoo Racing</span>
-  <img src="https://upload.wikimedia.org/wikipedia/commons/e/e6/Toyota_Gazoo_Racing_emblem.svg"
-       style="position: absolute; top: 20px; right: 15px; height: 40px; width: auto;">
-  <div style="text-align: left;">
-    <h1 style="margin:0;font-weight:800;">OK-GR</h1>
-    <h3 style="margin:0;font-weight:500;margin-top:0px;">Data Analysis</h3>
-    <div style="color:#23F0C7;font-weight:400;margin-top:0px;">Let's break down your session.</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    <div class="banner" style="position: relative; padding-right: 50px;">
+    <span class="badge">Toyota Gazoo Racing</span>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e6/Toyota_Gazoo_Racing_emblem.svg"
+        style="position: absolute; top: 20px; right: 15px; height: 40px; width: auto;">
+    <div style="text-align: left;">
+        <h1 style="margin:0;font-weight:800;">Session Analysis</h1>
+        <div style="color:#23F0C7;font-weight:400;margin-top:0px;">GR Agent Ready</div>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-
-
-# ----------------------------
-# Load laps file from session
-# ----------------------------
-laps_file = st.session_state.get("laps_file")
-
-if laps_file is not None:
-    st.success("Laps file loaded from session state.")
-
-    st.markdown("### Reference Lap Overview")
-    ref = compute_reference_laps(laps_file, car_number=72)
-
-    st.write(ref)  # Summary dict
-else:
-    st.warning("No laps file found. Please upload data first on the upload page.")
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 
-st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+#Split Screen
+left,right = st.columns([1,1], gap="small",width="stretch", vertical_alignment="top")
+
+# Left Side - Session Analysis
+with left:
+    st.subheader("Data Summary")
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+
+# Right Side - Race Engineer Chat
+with right:
+
+    # ----------------------------
+    # Load laps file from upload page
+    # ----------------------------
+    laps_file = st.session_state.get("laps_file")
+
+    # ----------------------------
+    # Chat UI
+    # ----------------------------
+    st.subheader("Chat with Your Engineer")
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+
+    ENGINEER_AVATAR = "https://i.postimg.cc/DwpKJR59/race-engineer.png"
+    DRIVER_AVATAR = "https://i.postimg.cc/PfVb743X/gr-driver.png"
 
 
-# ----------------------------
-# Chat UI
-# ----------------------------
-st.subheader("GR Agent — Your Race Engineer")
+    # ---------- INITIALIZE CHAT HISTORY ----------
+    if "messages" not in st.session_state:
+        # Only system message remains in memory (hidden)
+        st.session_state.messages = [
+            {"role": "system", "content": "The laps file is available under key 'laps_file'. Use this key when calling tools."},
+            {"role": "assistant", "content": "Alright mate, I've got your session data loaded. Where do you think we can find some time?"}
+        ]
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = [{
-        "role": "assistant",
-        "content": "Alright driver — I’ve loaded your session. What do you want to look at first?"
-    }]
 
-# Render chat history
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+    # ---------- RENDER CHAT HISTORY ----------
+    for msg in st.session_state.messages:
 
-# Chat input
-prompt = st.chat_input("Ask anything about your race data…")
+        # Skip hidden messages
+        if msg["role"] == "system":
+            continue
+        if msg["role"] == "tool":
+            continue
+        if "tool_calls" in msg:
+            continue
 
-if prompt:
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
+        # Render user
+        if msg["role"] == "user":
+            st.chat_message("user", avatar=DRIVER_AVATAR, width="stretch").write(msg["content"])
 
-    # Run agent
-    response = run_agent(st.session_state.messages)
+        # Render assistant
+        elif msg["role"] == "assistant":
+            st.chat_message("assistant", avatar=ENGINEER_AVATAR, width="stretch").write(msg["content"])
 
-    # Add assistant message
-    st.session_state.messages.append({"role": "assistant", "content": response})
-    st.chat_message("assistant").write(response)
+
+    # ---------- CHAT INPUT ----------
+    prompt = st.chat_input("Ask anything about your race data…")
+
+    if prompt:
+
+        # Store + display user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.chat_message("user", avatar=DRIVER_AVATAR).write(prompt)
+
+        # CLEAN HISTORY before sending to model
+        clean_history = [
+            m for m in st.session_state.messages
+            if m["role"] != "tool"
+        ]
+
+        # Run agent
+        response = run_agent(clean_history)
+
+        # Store assistant reply
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response
+        })
+
+        # Display assistant reply
+        st.chat_message("assistant", avatar=ENGINEER_AVATAR).write(response)
