@@ -25,6 +25,7 @@ st.set_page_config(
     page_title="OK GR — AI Race Coach",
     page_icon="🏁",
     layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
 # Custom CSS (motorsport: dark pit-wall, F1 red, neon highlights)
