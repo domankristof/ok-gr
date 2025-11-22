@@ -168,8 +168,6 @@ with col2:
           st.switch_page("pages/data_upload.py")
 
 
-
-
 # ----------------------------
 # Footer
 # ----------------------------
