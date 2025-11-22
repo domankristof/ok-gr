@@ -59,20 +59,6 @@ def compute_reference_laps(laps_file: str, car_number: int):
     # Return computed values
     fastest_lap_name, fastest_lap_time = lap_times_sorted[0]
 
-    # ---------------------------------------
-    # STREAMLIT VISUALS
-    # ---------------------------------------
-    st.subheader(f"🏎️ Reference Laps for Car #{car_number}")
-
-    st.write("### Sorted Best Laps (Fastest → Slowest)")
-    st.dataframe(display_df, use_container_width=True)
-
-    st.write("### Visual Comparison")
-    st.bar_chart(display_df.set_index("Lap")["Time (s)"])
-
-    st.success(
-        f"**Fastest Lap: `{fastest_lap_name}` — {fastest_lap_time:.3f} seconds**"
-    )
 
     # Also return values programmatically (important for OpenAI tool calling)
     return {

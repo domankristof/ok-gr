@@ -203,6 +203,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 
                 st.success("Files submitted for processing!")
                 # You can add navigation to analysis page here later
+                st.switch_page("pages/analysis.py")
                 
 
     # Display uploaded files
@@ -213,16 +214,6 @@ with st.expander("📁 Upload CSVs", expanded=True):
             if file is not None:
                 st.write(f"{i+1}. {file.name}")
 
-
-
-#For debugging:
-
-if laps_file is None:
-    st.warning("No laps file uploaded yet.")
-
-    if laps_file is not None:
-        st.success("Laps file uploaded.")
-        compute_reference_laps(laps_file, car_number=72)
 
 
 # Footer ----------------------------
