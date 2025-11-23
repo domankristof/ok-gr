@@ -1,132 +1,118 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
+import math
 
 def time_to_seconds(t):
-    """Convert strings like '2:15.432' → seconds as float."""
-    if pd.isna(t):
-        return np.nan
-    if isinstance(t, (int, float)):
+    """Convert time formats like '1:25.342' or '55.123' into seconds as float.
+    Handles NaN/None gracefully.
+    """
+    if pd.isna(t) or t is None:
+        return None
+    
+    # If it's already a number, return it as a float
+    if isinstance(t, (float, int)):
         return float(t)
 
-    t = str(t)
+    t = str(t).strip()
+    if not t: # Handle empty string
+        return None
+
     parts = t.split(":")
-    if len(parts) == 1:
-        return float(parts[0])
-    elif len(parts) == 2:
-        m, s = parts
-        return int(m) * 60 + float(s)
-    elif len(parts) == 3:
-        h, m, s = parts
-        return int(h) * 3600 + int(m) * 60 + float(s)
-    return np.nan
+
+    try:
+        if len(parts) == 1:         # SS.sss
+            return float(parts[0])
+        elif len(parts) == 2:       # M:SS.sss
+            m, s = parts
+            return int(m) * 60 + float(s)
+        elif len(parts) == 3:       # H:MM:SS.sss
+            h, m, s = parts
+            return int(h) * 3600 + int(m) * 60 + float(s)
+    except Exception:
+        # Catch errors from non-convertible strings
+        return None
+
+    return None
 
 
 def deltas_tool(sectors_file, car_number: int):
     """
     Compute:
-    - Sector deltas vs personal best
-    - Sector deltas vs session best
-    - Lap deltas vs PB and reference
+    - Sector deltas (PB + leader)
+    - Lap deltas (PB + leader)
+    - Driver consistency score
     - Optimal lap
-    - Driver consistency score (0–100)
+    - JSON-safe output
     """
+    # Load + clean
+    df = pd.read_csv(sectors_file, sep=";", engine='python', skipinitialspace=True)
+    df.columns = df.columns.str.strip()
 
-    sectors_file.seek(0)
-    df = pd.read_csv(sectors_file, sep=";")
-    df.columns = df.columns.str.strip() # Clean column names
+    # Column names
+    vehicle_number_col = "NUMBER"
+    lap_number_col = "LAP_NUMBER"
+    lap_time_col = "LAP_TIME"
+    sector1_col = "S1_SECONDS"
+    sector2_col = "S2_SECONDS"
+    sector3_col = "S3_SECONDS"
 
-    # Convert lap time to seconds
-    df["LAP_TIME_S"] = df["LAP_TIME"].apply(time_to_seconds)
-
-    # Sector columns available in your dataset
-    sector_cols = ["S1_SECONDS", "S2_SECONDS", "S3_SECONDS"]
-
-    # Filter rows for this driver
-    driver_df = df[df["NUMBER"] == car_number].copy()
+    # Filter driver
+    driver_df = df[df[vehicle_number_col] == car_number].copy()
     if driver_df.empty:
-        raise ValueError(f"Car {car_number} not found in file.")
+        raise ValueError(f"Car {car_number} not found.")
 
-    # ---------------------------------------
+    # Convert lap times → seconds
+    df["LAP_TIME_S"] = df[lap_time_col].apply(time_to_seconds)
+    driver_df["LAP_TIME_S"] = driver_df[lap_time_col].apply(time_to_seconds)
+
     # Personal bests
-    # ---------------------------------------
-    personal_best = {
-        "S1": driver_df["S1_SECONDS"].min(),
-        "S2": driver_df["S2_SECONDS"].min(),
-        "S3": driver_df["S3_SECONDS"].min(),
-        "LAP": driver_df["LAP_TIME_S"].min(),
+    personal_bests = {
+        "S1": driver_df[sector1_col].min(),
+        "S2": driver_df[sector2_col].min(),
+        "S3": driver_df[sector3_col].min(),
+        "LAP": driver_df["LAP_TIME_S"].min()
     }
 
-    # Optimal lap = sum of best sectors
-    optimal_lap = (
-        personal_best["S1"]
-        + personal_best["S2"]
-        + personal_best["S3"]
-    )
+    # Optimal lap
+    optimal_lap = personal_bests["S1"] + personal_bests["S2"] + personal_bests["S3"]
 
-    # ---------------------------------------
-    # Session-best references
-    # ---------------------------------------
-    reference_bests = {
-        "S1": df["S1_SECONDS"].min(),
-        "S2": df["S2_SECONDS"].min(),
-        "S3": df["S3_SECONDS"].min(),
-        "LAP": df["LAP_TIME_S"].min(),
+    # Global bests (leader)
+    session_bests = {
+        "S1": df[sector1_col].min(),
+        "S2": df[sector2_col].min(),
+        "S3": df[sector3_col].min(),
+        "LAP": df["LAP_TIME_S"].min()
     }
 
-    # ---------------------------------------
-    # Per-lap deltas
-    # ---------------------------------------
+    # Build lap-by-lap deltas
     deltas = []
-
     for _, row in driver_df.iterrows():
-        lap = int(row["LAP_NUMBER"])
-        s1 = row["S1_SECONDS"]
-        s2 = row["S2_SECONDS"]
-        s3 = row["S3_SECONDS"]
-        lap_time = row["LAP_TIME_S"]
-
         deltas.append({
-            "Lap": lap,
-            "Delta_S1_Personal": s1 - personal_best["S1"],
-            "Delta_S2_Personal": s2 - personal_best["S2"],
-            "Delta_S3_Personal": s3 - personal_best["S3"],
-            "Delta_Lap_Personal": lap_time - personal_best["LAP"],
+            "Lap": int(row[lap_number_col]),
+            "S1": row[sector1_col],
+            "S2": row[sector2_col],
+            "S3": row[sector3_col],
+            "LapTime": row["LAP_TIME_S"],
 
-            "Delta_S1_Reference": s1 - reference_bests["S1"],
-            "Delta_S2_Reference": s2 - reference_bests["S2"],
-            "Delta_S3_Reference": s3 - reference_bests["S3"],
-            "Delta_Lap_Reference": lap_time - reference_bests["LAP"],
+            "Delta_S1_PB": row[sector1_col] - personal_bests["S1"],
+            "Delta_S2_PB": row[sector2_col] - personal_bests["S2"],
+            "Delta_S3_PB": row[sector3_col] - personal_bests["S3"],
+            "Delta_Lap_PB": row["LAP_TIME_S"] - personal_bests["LAP"],
+
+            "Delta_S1_Leader": row[sector1_col] - session_bests["S1"],
+            "Delta_S2_Leader": row[sector2_col] - session_bests["S2"],
+            "Delta_S3_Leader": row[sector3_col] - session_bests["S3"],
+            "Delta_Lap_Leader": row["LAP_TIME_S"] - session_bests["LAP"],
         })
 
     deltas_df = pd.DataFrame(deltas).sort_values("Lap")
 
-    # ---------------------------------------
-    # Driver consistency score (0–100)
-    # ---------------------------------------
-    lap_times = driver_df["LAP_TIME_S"].dropna()
-
-    if len(lap_times) > 1:
-        mean_lap = lap_times.mean()
-        std_lap = lap_times.std()
-        coeff_var = std_lap / mean_lap  # relative variation
-
-        consistency_score = 100 - (coeff_var * 100)
-        consistency_score = max(0, min(100, consistency_score))  # clamp
-    else:
-        consistency_score = None
-
-
-    # -------------------------------------------------------
-    # Return everything including plot path
-    # -------------------------------------------------------
+    # Return JSON-safe output
     return {
         "car_number": car_number,
-        "personal_best": personal_best,
+        "personal_bests": personal_bests,
+        "session_bests": session_bests,
         "optimal_lap": optimal_lap,
-        "reference_bests": reference_bests,
-        "consistency_score": round(consistency_score, 2) if consistency_score else None,
-        "deltas": deltas_df,
-        #"plot_path": filename,
+        "deltas": deltas_df,  # wrapper will convert to JSON
     }

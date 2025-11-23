@@ -9,11 +9,14 @@ from core.load_telemetry import load_parquet_from_supabase
 
 # Tools Functions
 from core.determine_reference_tool import compute_reference_laps
+from core.delta_tool import deltas_tool
+from core.delta_tool import time_to_seconds
 
 #Summary Functions
 from core.summary_key_stats import display_key_summary_stats
 from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
+from core.summary_deltas import summary_deltas
 
 # ----------------------------
 # Load files from upload page
@@ -147,6 +150,19 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
     overflow-y: auto;  /* Scrollable */
     padding-bottom: 70px;  /* Space so chat input doesn't overlap */
 }
+
+/* 1. Target the main metric container for background and border */
+[data-testid="stMetric"] {
+    position: relative;
+    padding: 18px 22px;
+    background-color: linear-gradient(180deg, #12151A 0%, #0E1014 100%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    /* Set a min width to ensure uniform size in columns */
+    min-width: 150px;
+    min-height: 90px;
+}
 </style>
 
 """, unsafe_allow_html=True)
@@ -171,48 +187,6 @@ st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 #Split Screen
 left,right = st.columns([1,1], gap="medium",width="stretch", vertical_alignment="top")
 
-
-# ----------------------------
-# Left Side - Session Analysis
-# ----------------------------
-with left:
-    st.subheader("Data Summary")
-    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-
-    #Key Summary Stats
-    if laps_file is None:
-        st.warning("No laps file found — upload data first.")
-    else:
-        try:
-            stats = display_key_summary_stats(laps_file, car_number=2)
-        except Exception as e:
-            st.error(f"Error displaying summary stats: {e}")
-
-
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-
-
-    #Weather Summary
-    if weather_file is None:
-        st.warning("No weather file found — upload data first.")
-    else:
-        try:
-            weather_summary = render_weather_summary(weather_file)
-        except Exception as e:
-            st.error(f"Error displaying weather summary: {e}")
-
-
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-
-
-    #Summary Telemetry
-    try:
-        df = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
-        st.write(f"DataFrame shape: {df.shape}")
-        telemetry_summary = summarize_telemetry(df, vehicle_number=2)
-    except Exception as e:
-        st.error(f"Error loading telemetry data: {e}")
-
 #--------------------------------------------
 # Right Side - Race Engineer Chat
 with right:
@@ -228,6 +202,7 @@ with right:
     if "messages" not in st.session_state:
         st.session_state.messages = [
             {"role": "system", "content": "The laps file is available under key 'laps_file'. Use this key when calling tools."},
+            {"role": "system", "content": "The sectors file is available under key 'sectors_file'. Use this key when calling tools."},
             {"role": "assistant", "content": "Alright mate, I've got your session data loaded. Where do you think we can find some time?"}
         ]
 
@@ -270,3 +245,49 @@ with right:
         })
 
         st.rerun()
+
+# ----------------------------
+# Left Side - Session Analysis
+# ----------------------------
+with left:
+    st.subheader("Data Summary")
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+
+    #Key Summary Stats
+    if laps_file is None:
+        st.warning("No laps file found — upload data first.")
+    else:
+        try:
+            stats = display_key_summary_stats(laps_file, car_number=2)
+        except Exception as e:
+            st.error(f"Error displaying summary stats: {e}")
+
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+
+    #Weather Summary
+    if weather_file is None:
+        st.warning("No weather file found — upload data first.")
+    else:
+        try:
+            weather_summary = render_weather_summary(weather_file)
+        except Exception as e:
+            st.error(f"Error displaying weather summary: {e}")
+
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    summary_of_deltas = summary_deltas(sectors_file, car_number=2)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    #Summary Telemetry
+    try:
+        df = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
+        telemetry_summary = summarize_telemetry(df, vehicle_number=2)
+    except Exception as e:
+        st.error(f"Error loading telemetry data: {e}")

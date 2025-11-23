@@ -45,10 +45,6 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
     # Drop invalid timestamps
     df = df.dropna(subset=["timestamp"])
     
-    # --- DEBUGGING VEHICLE IDs ---
-    st.info(f"Available Vehicle IDs in data: {df[VEHICLE_COL].unique()}")
-    # -----------------------------
-    
     # -------------------------
     # VEHICLE FILTER
     # -------------------------
@@ -84,10 +80,6 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
     # -------------------------
     # EXTRACT STREAMS 
     # -------------------------
-    
-    # 🚀 ACTION REQUIRED: REPLACE THE NAMES IN QUOTES BELOW 
-    # with the exact names found in the "Unique Signals" list above!
-    
     # Example placeholders for other signals (these seem correct for your data)
     speed_name = "Speed" 
     rpm_name = "nmot"

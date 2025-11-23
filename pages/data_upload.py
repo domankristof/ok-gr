@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
-from core.determine_reference import compute_reference_laps
 
 st.set_page_config(
     page_title="Upload Data - OK GR",
@@ -209,7 +208,6 @@ with st.expander("📁 Upload CSVs", expanded=True):
         for i, file in enumerate(uploaded_files):
             if file is not None:
                 st.write(f"{i+1}. {file.name}")
-
 
 
 # Footer ----------------------------

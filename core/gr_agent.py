@@ -5,7 +5,7 @@ import json
 import streamlit as st
 
 # ---- Import your actual tool functions from your core files ----
-from core.determine_reference import compute_reference_laps as ref_laps_tool
+from core.determine_reference_tool import compute_reference_laps as ref_laps_tool
 from core.delta_tool import deltas_tool as core_deltas_tool
 from core.delta_tool import time_to_seconds as core_time_to_seconds
 
@@ -48,6 +48,8 @@ def tool_compute_deltas(sectors_key: str, car_number: int):
     file_obj = st.session_state[sectors_key]
 
     try:
+        file_obj.seek(0)
+
         result = core_deltas_tool(file_obj, car_number)
 
         # Convert DataFrames inside result → JSON
