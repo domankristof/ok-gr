@@ -181,7 +181,7 @@ with left:
         st.warning("No laps file found — upload data first.")
     else:
         try:
-            stats = display_key_summary_stats(laps_file, car_number=72)
+            stats = display_key_summary_stats(laps_file, car_number=2)
         except Exception as e:
             st.error(f"Error displaying summary stats: {e}")
 
@@ -204,8 +204,11 @@ with left:
 
     #Summary Telemetry
     try:
-        telemetry_df = load_parquet_from_supabase("R1_vir_telemetry_data.parquet")
-        telemetry_summary = summarize_telemetry(telemetry_df, vehicle_number=72)
+        df = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
+        st.write(f"DataFrame shape: {df.shape}")
+        #st.write(df.head(20))
+        #telemetry_df = load_parquet_from_supabase("R1_vir_telemetry_data.parquet")
+        telemetry_summary = summarize_telemetry(df, vehicle_number=2)
     except Exception as e:
         st.error(f"Error loading telemetry data: {e}")
 

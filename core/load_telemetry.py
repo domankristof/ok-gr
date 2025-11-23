@@ -1,48 +1,86 @@
 import pandas as pd
-import tempfile
-from core.supabase_client import supabase, BUCKET
-import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
+import pyarrow as pa
+import io
+from core.supabase_client import supabase, BUCKET
+import streamlit as st
+
+# Define a list of fallback encodings to try
+ENCODING_FALLBACK = ['utf-8', 'latin-1', 'iso-8859-1']
 
 def load_parquet_from_supabase(filename: str) -> pd.DataFrame:
+    """
+    Downloads a Parquet file from Supabase Storage.
+    It attempts Parquet load first, and falls back to a multi-encoding CSV parser.
+    """
+    try:
+        response = supabase.storage.from_(BUCKET).download(filename)
+    except Exception as e:
+        raise ValueError(f"Could not download telemetry file: {filename}. Error: {e}")
 
-    # 1. Download bytes from Supabase
-    response = supabase.storage.from_(BUCKET).download(filename)
+    if isinstance(response, (bytes, bytearray)):
+        data = bytes(response)
+    else:
+        data = response.read()
 
-    if not response:
-        raise ValueError(f"Could not download telemetry file: {filename}")
+    # Attempt to load as Parquet first
+    try:
+        table = pq.read_table(pa.BufferReader(data))
+        
+        # --- DEBUGGING START ---
+        st.info(f"PyArrow read successful. Detected columns: {table.num_columns}. Rows: {table.num_rows}.")
+        # --- DEBUGGING END ---
+        
+        # If loaded successfully and has > 1 column, return it
+        if table.num_columns > 1 and table.num_rows > 1:
+            df = table.to_pandas(split_blocks=True, self_destruct=True)
+            df.columns = df.columns.str.strip()
+            return df
 
-    # Ensure we have raw bytes (Supabase sometimes returns a stream)
-    data = bytes(response)
+    except pa.ArrowIOError:
+        # If Parquet load fails, proceed to CSV fallback
+        st.warning("PyArrow failed to read data as standard Parquet (ArrowIOError).")
+        pass
+    
+    st.warning("Data is in single-column or incorrect Parquet format. Attempting multi-encoding CSV parse.")
+    st.error("The Parquet file is corrupted or incorrectly structured. You MUST re-run 'telemetry_converter.py' and re-upload the file named 'R1_telemetry_final.parquet'.")
+    return _handle_fake_parquet(data)
 
-    # 2. Read parquet from memory
-    table = pq.read_table(pa.BufferReader(data))
 
-    # ---------------------------------------------
-    # Detect SINGLE-COLUMN "fake parquet" structure
-    # ---------------------------------------------
-    if table.num_columns == 1:
-        col_name = table.column_names[0]       # long header string
-        header = [h.strip() for h in col_name.split(",")]
+def _handle_fake_parquet(data: bytes) -> pd.DataFrame:
+    """
+    Reads the raw bytes as a CSV stream, attempting multiple common encodings.
+    """
+    csv_data = None
+    
+    # 1. Try multiple encodings
+    for encoding in ENCODING_FALLBACK:
+        try:
+            csv_data = data.decode(encoding)
+            # Success, break the loop
+            st.info(f"Successfully decoded using {encoding}.")
+            break
+        except UnicodeDecodeError:
+            continue # Try the next encoding
 
-        # Split rows FAST using pyarrow compute
-        parts = pc.split_pattern(
-            table[col_name],
-            pattern=",",
-            max_splits=len(header) - 1
-        )
+    if csv_data is None:
+        st.error(f"Failed to decode file using any of the fallback encodings: {', '.join(ENCODING_FALLBACK)}")
+        return pd.DataFrame()
 
-        # Rebuild table with correct columns
-        table = pa.table({header[i]: parts[i] for i in range(len(header))})
-
-    # Convert to pandas
-    df = table.to_pandas(split_blocks=True, self_destruct=True)
-
-    # Strip whitespace from all string columns
+    # 2. Parse the decoded text as a CSV
+    try:
+        data_buffer = io.StringIO(csv_data)
+        # 🚀 FINAL FIX: Add on_bad_lines='skip' to ignore rows with inconsistent field counts (like saw 20 instead of 18)
+        df = pd.read_csv(data_buffer, sep=';', header=0, on_bad_lines='skip') 
+        
+    except Exception as e:
+        st.error(f"Failed to parse decoded text as CSV. Error: {e}")
+        return pd.DataFrame()
+    
+    # 3. Final cleanup
     df.columns = df.columns.str.strip()
-    for c in df.columns:
-        if df[c].dtype == object:
-            df[c] = df[c].str.strip()
+    for col in df.columns:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str).str.strip()
 
     return df

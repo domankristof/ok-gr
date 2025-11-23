@@ -1,11 +1,8 @@
 import pandas as pd
 import numpy as np
 import streamlit as st
-from core.load_telemetry import load_parquet_from_supabase
-from core.supabase_client import supabase, BUCKET
-
 import matplotlib.pyplot as plt
-
+# Assuming core.load_telemetry.py is fixed and available
 
 def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
     """
@@ -15,90 +12,171 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
         - Throttle & Brake over time
         - GPS trace
     """
-
-    # Columns of interests
-    vehicle_number = df['vehicle_number']
-    telemetry_name = df['telemetry_name']
-    telemetry_value = df['telemetry_value']
-    timestamp = pd.to_datetime(df["timestamp"])
-
+    
     # -------------------------
-    # Auto-detect timestamp column
-    timestamp_candidates = ["timestamp", "TIME_UTC_STR", "TIME_UTC", "time", "time_utc"]
-    ts_col = next((c for c in timestamp_candidates if c in df.columns), None)
+    # DATA CLEANING & PREP
+    # -------------------------
+    
+    # Identify the key columns defensively
+    VEHICLE_COL = 'vehicle_number'
+    
+    # Ensure all column names are stripped for safety
+    df.columns = df.columns.str.strip()
+    
+    # Check if the critical vehicle column exists
+    if VEHICLE_COL not in df.columns:
+        # Try to find a column that looks like it
+        potential_cols = [c for c in df.columns if 'vehicle' in c.lower()]
+        if potential_cols:
+            VEHICLE_COL = potential_cols[0]
+            st.warning(f"Using column '{VEHICLE_COL}' as the vehicle identifier.")
+        else:
+            st.error(f"Cannot find the required '{VEHICLE_COL}' column in the data.")
+            return
 
-    if ts_col is None:
-        st.error("No timestamp column found.")
-        return
-
-    # Convert safely (invalid → NaT)
-    df["timestamp"] = pd.to_datetime(df[ts_col], errors="coerce")
-
-    # Remove bad rows such as "1"
-    before = len(df)
+    # Convert safely (invalid → NaT or NaN)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    
+    # 🚀 FIX: Convert vehicle number to numeric, fill NaNs with a known dummy value (-1), and force integer type.
+    df[VEHICLE_COL] = pd.to_numeric(df[VEHICLE_COL], errors="coerce").fillna(-1).astype('int64')
+    
+    df["telemetry_value"] = pd.to_numeric(df["telemetry_value"], errors="coerce")
+    
+    # Drop invalid timestamps
     df = df.dropna(subset=["timestamp"])
-    after = len(df)
-
-    if before != after:
-        st.warning(f"Dropped {before - after} rows with invalid timestamps.")
-
+    
+    # --- DEBUGGING VEHICLE IDs ---
+    st.info(f"Available Vehicle IDs in data: {df[VEHICLE_COL].unique()}")
+    # -----------------------------
+    
     # -------------------------
-
-    #Filtering for the user's vehicle number
-    user_df = df[df['vehicle_number'] == vehicle_number].copy()
+    # VEHICLE FILTER
+    # -------------------------
+    # Now filter using the guaranteed-to-be-integer column
+    user_df = df[df[VEHICLE_COL] == vehicle_number].copy()
 
     if user_df.empty:
-        st.warning(f"No telemetry data found for vehicle number {vehicle_number}.")
-        return
-    
-    # Convert timestamp column to datetime
-    user_df['timestamp'] = pd.to_datetime(user_df['timestamp'])
+        st.warning(f"No telemetry found for vehicle {vehicle_number} after cleaning.")
+        return 
 
+    # --- DEBUGGING TELEMETRY NAMES ---
+    # 🌟 IMPORTANT: This list shows the exact signal names you must use below.
+    # If the GPS trace doesn't show, check this list for the correct Lat/Lon names.
+    all_signals = user_df['telemetry_name'].unique()
+    st.info(f"Unique Signals for Vehicle {vehicle_number}: {all_signals}")
+    # ---------------------------------
 
-    #Helper function to filter telemetry data by name
-    def filter_telemetry_by_name(name):
-        return user_df[user_df["telemetry_name"] == name][["timestamp", "telemetry_value"]]
+    # -------------------------
+    # Helper to extract telemetry signals (using user_df now)
+    # -------------------------
+    def get_telemetry_value(telemetry_name):
+        # Normalize comparison to handle case/whitespace errors
+        normalized_data_names = user_df["telemetry_name"].astype(str).str.strip().str.lower()
+        normalized_lookup = telemetry_name.strip().lower()
+        
+        # Filter rows
+        mask = normalized_data_names == normalized_lookup
+        
+        # Select both columns and sort by time
+        result_df = user_df.loc[mask, ["timestamp", "telemetry_value"]].copy() 
+        return result_df.sort_values("timestamp")
+
+    # -------------------------
+    # EXTRACT STREAMS 
+    # -------------------------
     
-    #Extracting telemetry data
-    speed_data = filter_telemetry_by_name('Speed')
-    gear_data = filter_telemetry_by_name('Gear')
-    engine_rpm_data = filter_telemetry_by_name('nmot')
-    throttle_blade_data = filter_telemetry_by_name('ath')
-    throttle_pedal_data = filter_telemetry_by_name('aps')
-    front_brake_pressure_data = filter_telemetry_by_name('pbrake_f')
-    rear_brake_pressure_data = filter_telemetry_by_name('pbrake_r')
-    longitudinal_accel_data = filter_telemetry_by_name('accx_can')
-    lateral_accel_data = filter_telemetry_by_name('accy_can')
-    steering_angle_data = filter_telemetry_by_name('Steering_Angle')
-    gps_longitude_data = filter_telemetry_by_name('VBOX_Long_Minutes')
-    gps_latitude_data = filter_telemetry_by_name('VBOX_Lat_Min')
-    dist_from_start_data = filter_telemetry_by_name('Laptrigger_lapdist_dls')
+    # 🚀 ACTION REQUIRED: REPLACE THE NAMES IN QUOTES BELOW 
+    # with the exact names found in the "Unique Signals" list above!
     
+    # Example placeholders for other signals (these seem correct for your data)
+    speed_name = "Speed" 
+    rpm_name = "nmot"
+    throttle_name = "aps"
+    brake_name = "pbrake_f"
+    
+    GPS_LAT_NAME = "VBOX_Lat_Min" 
+    GPS_LON_NAME = "VBOX_Long_Minutes"
+   
+    speed_data = get_telemetry_value(speed_name)
+    engine_rpm_data = get_telemetry_value(rpm_name)
+    throttle_pedal_data = get_telemetry_value(throttle_name)
+    brake_pressure_data = get_telemetry_value(brake_name)
 
     # -------------------------
     # PLOTS
     # -------------------------
+    st.header(f"Telemetry Summary for Vehicle {vehicle_number}")
 
-    # === Speed Over Time ===
-    if not speed_data.empty:
-        fig, ax = plt.subplots(figsize=(10, 3))
-        ax.plot(speed_data["timestamp"], speed_data["telemetry_value"], color="#E10600")
-        ax.set_title("Speed Over Time")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Speed (km/h)")
-        ax.grid(True)
-        st.pyplot(fig)
+    # SPEED PLOT
+    if speed_data.empty:
+        st.warning(f"No speed data available for this vehicle. Check signal name: '{speed_name}'")
+    else:
+        st.subheader(f"Speed Over Time ({speed_name})")
+        st.line_chart(
+            data=speed_data.set_index("timestamp"),
+            height=300,
+            use_container_width=True,
+        )
+    
+    # RPM PLOT
+    if not engine_rpm_data.empty:
+         st.subheader(f"Engine RPM ({rpm_name})")
+         st.line_chart(
+            data=engine_rpm_data.set_index("timestamp"),
+            height=300,
+            use_container_width=True,
+        )
 
-    # === GPS Path ===
-    if not gps_longitude_data.empty and not gps_latitude_data.empty:
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.plot(gps_longitude_data["telemetry_value"], gps_latitude_data["telemetry_value"], color="#23F0C7")
-        ax.set_title("GPS Trace")
-        ax.set_xlabel("Longitude (Minutes)")
-        ax.set_ylabel("Latitude (Minutes)")
-        ax.axis('equal')
-        ax.grid(True)
-        st.pyplot(fig)
+    # THROTTLE & BRAKE PLOT (Combined)
+    if not throttle_pedal_data.empty or not brake_pressure_data.empty:
+        st.subheader("Throttle and Brake Pedal Position")
+        
+        # Combine into a single DF for multi-line chart
+        pedal_data = pd.merge_asof(
+            throttle_pedal_data.rename(columns={'telemetry_value': 'Throttle'}),
+            brake_pressure_data.rename(columns={'telemetry_value': 'Brake'}),
+            on="timestamp",
+            direction="nearest"
+        )
+        
+        if not pedal_data.empty:
+             st.line_chart(
+                data=pedal_data.set_index("timestamp"),
+                height=300,
+                use_container_width=True,
+            )
 
+    # === GPS Path (match timestamps via merge_asof) ===
+    gps_lon = get_telemetry_value(GPS_LON_NAME)
+    gps_lat = get_telemetry_value(GPS_LAT_NAME)
+    
+    if not gps_lon.empty and not gps_lat.empty:
+        st.subheader("GPS Trace")
+        gps = pd.merge_asof(
+            gps_lon.rename(columns={'telemetry_value': 'lon'}),
+            gps_lat.rename(columns={'telemetry_value': 'lat'}),
+            on="timestamp",
+            direction="nearest"
+        )
 
-
+        if not gps.empty:
+            # Use Streamlit's native map function for simpler GPS plotting
+            try:
+                # Need to convert to float because telemetry_value is sometimes read as object/string initially
+                gps_map_data = gps[['lat', 'lon']].astype(float).dropna()
+                if not gps_map_data.empty:
+                    st.map(gps_map_data, zoom=12)
+                else:
+                    st.warning("GPS data (lat/lon) is available but contains no valid numeric points after conversion.")
+            except Exception as e:
+                st.error(f"Error drawing st.map (likely non-numeric GPS data): {e}")
+                # Fallback to Matplotlib if st.map fails due to type issues
+                fig, ax = plt.subplots(figsize=(6, 6))
+                ax.plot(gps["lon"], gps["lat"], color="white", linewidth=2)
+                ax.set_title("GPS Trace (Matplotlib Fallback)")
+                ax.axis('equal')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                st.pyplot(fig)
+    else:
+        st.warning(f"GPS data not found. Check signal names: Lat='{GPS_LAT_NAME}', Lon='{GPS_LON_NAME}'")
