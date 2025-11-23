@@ -2,13 +2,12 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import json
+
 import streamlit as st
 
-# ---- Import your actual tool functions from your core files ----
 from core.determine_reference import compute_reference_laps as ref_laps_tool
 from core.delta_tool import deltas_tool as core_deltas_tool
 from core.delta_tool import time_to_seconds as core_time_to_seconds
-
 
 # ----------------------------
 # Environment & Client Setup
@@ -18,30 +17,27 @@ client = OpenAI(api_key=os.getenv("OPEN_AI_KEY"))
 
 
 # ----------------------------
-# TOOL WRAPPERS
+# TOOL Wrappers
 # ----------------------------
 
 def tool_compute_reference_laps(laps_key: str, car_number: int):
-    """
-    Wrapper around compute_reference_laps(), retrieving the file
-    from Streamlit session state and handling errors safely.
-    """
+    """Wrapper for computing reference laps."""
+
     if laps_key not in st.session_state:
         return {"status": "error", "message": f"No file found for key '{laps_key}'"}
 
-    file_obj = st.session_state[laps_key]
+    laps_file_obj = st.session_state[laps_key]
 
     try:
-        result = ref_laps_tool(file_obj, car_number)
+        result = ref_laps_tool(laps_file_obj, car_number)
         return {"status": "success", "data": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 def tool_compute_deltas(sectors_key: str, car_number: int):
-    """
-    Wrapper for your deltas tool. Ensures JSON compatibility.
-    """
+    """Wrapper for the delta tool."""
+
     if sectors_key not in st.session_state:
         return {"status": "error", "message": f"No file found for key '{sectors_key}'"}
 
@@ -50,18 +46,16 @@ def tool_compute_deltas(sectors_key: str, car_number: int):
     try:
         result = core_deltas_tool(file_obj, car_number)
 
-        # Convert DataFrames inside result → JSON
-        if "deltas" in result and hasattr(result["deltas"], "to_dict"):
-            result["deltas"] = result["deltas"].to_dict(orient="records")
+        # Ensure JSON safe
+        result["deltas"] = result["deltas"].to_dict(orient="records")
 
         return {"status": "success", "data": result}
-
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 def tool_time_to_seconds(t: str):
-    """Simple wrapper around your core time parser."""
+    """Convert time string to seconds."""
     try:
         return {"seconds": core_time_to_seconds(t)}
     except Exception as e:
@@ -69,24 +63,24 @@ def tool_time_to_seconds(t: str):
 
 
 # ----------------------------
-# OpenAI Tool Definitions
+# OpenAI Tool Descriptors
 # ----------------------------
 tools = [
     {
         "type": "function",
         "function": {
             "name": "tool_compute_reference_laps",
-            "description": "Compute reference laps for a given car number from the uploaded laps file.",
+            "description": "Compute reference laps for a given car number from the laps file. Use this when the driver asks about their best lap time or the best lap time in the session.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "laps_key": {
                         "type": "string",
-                        "description": "Key for the laps CSV in Streamlit session_state"
+                        "description": "Key to the laps file in Streamlit session state."
                     },
                     "car_number": {
                         "type": "integer",
-                        "description": "Driver's car number"
+                        "description": "Car number to compute reference laps for."
                     }
                 },
                 "required": ["laps_key", "car_number"]
@@ -98,17 +92,17 @@ tools = [
         "type": "function",
         "function": {
             "name": "tool_compute_deltas",
-            "description": "Compute lap deltas, sector deltas, optimal lap time, and consistency score.",
+            "description": "Compute driver deltas, consistency, optimal lap, sector losses, and leader comparisons. Use this when the driver is asking about their sector times, optimal lap, sector times compared to the leader, or consistency.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "sectors_key": {
                         "type": "string",
-                        "description": "Key for the sectors CSV in Streamlit session_state"
+                        "description": "Key to the sectors file in Streamlit session state."
                     },
                     "car_number": {
                         "type": "integer",
-                        "description": "Car number to compute deltas for"
+                        "description": "Car number to compute deltas for."
                     }
                 },
                 "required": ["sectors_key", "car_number"]
@@ -120,7 +114,7 @@ tools = [
         "type": "function",
         "function": {
             "name": "tool_time_to_seconds",
-            "description": "Convert a time string (e.g. '1:25.342') into seconds.",
+            "description": "Convert time string 'M:SS.sss' to total seconds.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -132,7 +126,9 @@ tools = [
     }
 ]
 
-# Map tool names to Python functions
+# ----------------------------
+# Map tool names → local Python functions
+# ----------------------------
 tool_map = {
     "tool_compute_reference_laps": tool_compute_reference_laps,
     "tool_compute_deltas": tool_compute_deltas,

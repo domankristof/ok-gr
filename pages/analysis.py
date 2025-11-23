@@ -8,7 +8,7 @@ from core.gr_agent import run_agent
 from core.load_telemetry import load_parquet_from_supabase
 
 # Tools Functions
-from core.determine_reference import compute_reference_laps
+from core.determine_reference_tool import compute_reference_laps
 
 #Summary Functions
 from core.summary_key_stats import display_key_summary_stats
@@ -16,11 +16,14 @@ from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
 
 # ----------------------------
-# Load laps file from upload page
+# Load files from upload page
 # ----------------------------
+car_number = st.session_state.get("car_number")
 laps_file = st.session_state.get("laps_file")
 weather_file = st.session_state.get("weather_file")
-
+results_file = st.session_state.get("results_file")
+sectors_file = st.session_state.get("sectors_file")
+# ----------------------------
 
 st.set_page_config(
     page_title="Analysis - OK GR",
@@ -206,8 +209,6 @@ with left:
     try:
         df = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
         st.write(f"DataFrame shape: {df.shape}")
-        #st.write(df.head(20))
-        #telemetry_df = load_parquet_from_supabase("R1_vir_telemetry_data.parquet")
         telemetry_summary = summarize_telemetry(df, vehicle_number=2)
     except Exception as e:
         st.error(f"Error loading telemetry data: {e}")

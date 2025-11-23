@@ -140,16 +140,12 @@ st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 st.markdown("""<h4 style="font-weight:500">📁 Upload Your Racing Data</h4>""", unsafe_allow_html=True)
 
 with st.expander("📁 Upload CSVs", expanded=True):
-    st.markdown("""<h5 style="font-weight:500">Telemetry File</h5>""", unsafe_allow_html=True)
-    telemetry_file = st.file_uploader(
-        "telemetry file",
-        type=["csv"],
-        accept_multiple_files=False,
-        key="telemetry_uploader",
-        label_visibility="hidden"
-    )
     
-    st.markdown("""<h5 style="font-weight:500">Lap Times File</h5>""", unsafe_allow_html=True)
+    car_number = st.selectbox(
+        "Select Your Car Number",
+        options=[2, 72, 8, 16, 20, 22])
+
+    st.markdown("""<h5 style="font-weight:500">Top 10 Lap Times File</h5>""", unsafe_allow_html=True)
     laps_file = st.file_uploader(
         "lap times file",
         type=["csv"],
@@ -167,7 +163,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
         label_visibility="hidden"
     )
     
-    st.markdown("""<h5 style="font-weight:500">Results File</h5>""", unsafe_allow_html=True)
+    st.markdown("""<h5 style="font-weight:500">Final Results File</h5>""", unsafe_allow_html=True)
     results_file = st.file_uploader(
         "results file",
         type=["csv"],
@@ -176,7 +172,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
         label_visibility="hidden"
     )
     
-    st.markdown("""<h5 style="font-weight:500">Sectors File</h5>""", unsafe_allow_html=True)
+    st.markdown("""<h5 style="font-weight:500">Sector Timings File</h5>""", unsafe_allow_html=True)
     sectors_file = st.file_uploader(
         "sectors file",
         type=["csv"],
@@ -191,11 +187,11 @@ with st.expander("📁 Upload CSVs", expanded=True):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("🚀 Process Files & Analyze", type="primary", use_container_width=True):
-            if not any([telemetry_file, laps_file, weather_file, results_file, sectors_file]):
+            if not any([car_number,laps_file, weather_file, results_file, sectors_file]):
                 st.error("Please upload at least one file before submitting.")
             else:
                 # Store files in session state
-                st.session_state.telemetry_file = telemetry_file
+                st.session_state.car_number = car_number
                 st.session_state.laps_file = laps_file
                 st.session_state.weather_file = weather_file
                 st.session_state.results_file = results_file
@@ -207,7 +203,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 
 
     # Display uploaded files
-    uploaded_files = [f for f in [telemetry_file, laps_file, weather_file, results_file, sectors_file] if f is not None]
+    uploaded_files = [f for f in [laps_file, weather_file, results_file, sectors_file] if f is not None]
     if uploaded_files:
         st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
         for i, file in enumerate(uploaded_files):
