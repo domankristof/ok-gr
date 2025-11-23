@@ -2,15 +2,23 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
-
-from core.determine_reference import compute_reference_laps
 from core.gr_agent import run_agent
+
+# Function to load telemetry data
+from core.load_telemetry import load_parquet_from_supabase
+
+# Tools Functions
+from core.determine_reference import compute_reference_laps
+
+#Summary Functions
 from core.summary_key_stats import display_key_summary_stats
+from core.summary_weather import render_weather_summary
 
 # ----------------------------
 # Load laps file from upload page
 # ----------------------------
 laps_file = st.session_state.get("laps_file")
+weather_file = st.session_state.get("weather_file")
 
 
 st.set_page_config(
@@ -175,6 +183,23 @@ with left:
         except Exception as e:
             st.error(f"Error displaying summary stats: {e}")
 
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    if laps_file is None:
+        st.warning("No weather file found — upload data first.")
+    else:
+        try:
+            weather_summary = render_weather_summary(weather_file)
+        except Exception as e:
+            st.error(f"Error displaying weather summary: {e}")
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    try:
+        telemetry_df = load_parquet_from_supabase("R1_vir_telemetry_data.parquet")
+        st.write(telemetry_df.head())
+    except Exception as e:
+        st.error(f"Could not load telemetry file: {e}")
 
 # Right Side - Race Engineer Chat
 with right:
