@@ -13,6 +13,7 @@ from core.determine_reference import compute_reference_laps
 #Summary Functions
 from core.summary_key_stats import display_key_summary_stats
 from core.summary_weather import render_weather_summary
+from core.summary_telemetry import summarize_telemetry
 
 # ----------------------------
 # Load laps file from upload page
@@ -175,6 +176,7 @@ with left:
     st.subheader("Data Summary")
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
+    #Key Summary Stats
     if laps_file is None:
         st.warning("No laps file found — upload data first.")
     else:
@@ -183,9 +185,12 @@ with left:
         except Exception as e:
             st.error(f"Error displaying summary stats: {e}")
 
+
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
-    if laps_file is None:
+
+    #Weather Summary
+    if weather_file is None:
         st.warning("No weather file found — upload data first.")
     else:
         try:
@@ -193,14 +198,18 @@ with left:
         except Exception as e:
             st.error(f"Error displaying weather summary: {e}")
 
+
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
+
+    #Summary Telemetry
     try:
         telemetry_df = load_parquet_from_supabase("R1_vir_telemetry_data.parquet")
-        st.write(telemetry_df.head())
+        telemetry_summary = summarize_telemetry(telemetry_df, vehicle_number=72)
     except Exception as e:
-        st.error(f"Could not load telemetry file: {e}")
+        st.error(f"Error loading telemetry data: {e}")
 
+#--------------------------------------------
 # Right Side - Race Engineer Chat
 with right:
     st.subheader("Chat with Your Engineer")
