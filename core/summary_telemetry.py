@@ -349,150 +349,155 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
 
 
 
-
-def speed_distance_plot(df: pd.DataFrame, vehicle_number: int):
+def speed_distance_plot(telemetry_df: pd.DataFrame, vehicle_number: int):
     """
-    Compute an average SPEED vs DISTANCE plot from mid-session laps.
+    Build a speed–distance plot:
+      • Detects the fastest lap automatically from telemetry
+      • Computes speed–distance traces for individual laps
+      • Averages mid-session laps
+      • Overlays FASTEST LAP vs AVERAGE MID-LAPS
     """
 
-    # -------------------------
-    # DATA CLEANING
-    # -------------------------
+    # Clean columns
+    df = telemetry_df.copy()
     df.columns = df.columns.str.strip()
 
-    VEHICLE_COL = "vehicle_number"
-    if VEHICLE_COL not in df.columns:
-        possible = [c for c in df.columns if "vehicle" in c.lower()]
-        if possible:
-            VEHICLE_COL = possible[0]
-            st.warning(f"Using '{VEHICLE_COL}' as vehicle ID column.")
-        else:
-            st.error("No vehicle_number column found.")
-            return
-
+    # Ensure correct formats
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df["telemetry_value"] = pd.to_numeric(df["telemetry_value"], errors="coerce")
-    df[VEHICLE_COL] = pd.to_numeric(df[VEHICLE_COL], errors="coerce")
-    df = df.dropna(subset=["timestamp"])
+    df["vehicle_number"] = pd.to_numeric(df["vehicle_number"], errors="coerce")
 
-    user_df = df[df[VEHICLE_COL] == vehicle_number].copy()
-    if user_df.empty:
+    df = df.dropna(subset=["timestamp"])
+    df = df[df["vehicle_number"] == vehicle_number]
+
+    if df.empty:
         st.warning(f"No telemetry found for vehicle {vehicle_number}.")
         return
 
-    # Must have lap column
-    if "lap" not in user_df.columns:
-        st.error("No 'lap' column found in your telemetry dataset.")
-        return
-
-    # -------------------------
-    # DETERMINE MID-SESSION LAPS
-    # -------------------------
-
-    # Requires accelerometer merge to identify clean laps
-    ACC_LONG = "accx_can"
-    ACC_LAT = "accy_can"
-
-    acc_long = user_df[user_df["telemetry_name"].str.lower() == ACC_LONG.lower()].copy()
-    acc_lat  = user_df[user_df["telemetry_name"].str.lower() == ACC_LAT.lower()].copy()
-
-    acc_long = acc_long.rename(columns={"telemetry_value": "long_g"})
-    acc_lat  = acc_lat.rename(columns={"telemetry_value": "lat_g"})
-
-    gg_df = pd.merge(
-        acc_long[["timestamp", "lap", "long_g"]],
-        acc_lat[["timestamp", "lap", "lat_g"]],
-        on=["timestamp", "lap"],
-        how="inner"
-    )
-
-    laps = sorted(gg_df["lap"].dropna().unique())
-    if len(laps) == 0:
-        st.warning("No valid laps found for speed–distance plot.")
-        return
-
-    mid_laps = laps[5:10] if len(laps) > 10 else laps[1:-1]
-
-
-    # -------------------------
-    # SPEED vs DISTANCE CALC
-    # -------------------------
-
+    # -----------------------------
+    # Extract speed channel ONLY
+    # -----------------------------
     SPEED_SIGNAL = "speed"
 
-    speed_df = user_df[user_df["telemetry_name"].str.lower() == SPEED_SIGNAL.lower()].copy()
-    speed_df = speed_df[["timestamp", "lap", "telemetry_value"]].rename(columns={"telemetry_value": "speed"})
+    speed_df = df[df["telemetry_name"].str.lower() == SPEED_SIGNAL.lower()].copy()
 
     if speed_df.empty:
-        st.warning("No speed data available.")
+        st.warning("No speed data found in telemetry.")
         return
 
-    speed_df = speed_df[speed_df["lap"].isin(mid_laps)]
+    # Remove any NaNs, sort by time
+    speed_df = speed_df.dropna(subset=["lap", "timestamp", "telemetry_value"])
+    speed_df = speed_df.rename(columns={"telemetry_value": "speed"})
+    speed_df = speed_df.sort_values("timestamp")
 
-    def compute_distance(lap_df):
-        lap_df = lap_df.sort_values("timestamp").copy()
-        # Convert speed from km/h → m/s
-        lap_df["speed_m_s"] = lap_df["speed"] / 3.6
-        # Compute dt in seconds
-        lap_df["dt"] = lap_df["timestamp"].diff().dt.total_seconds().fillna(0)
-        # Integrate to get meters
-        lap_df["distance"] = (lap_df["speed_m_s"] * lap_df["dt"]).cumsum()
-        # Return proper columns
-        return lap_df[["distance", "speed"]]
+    laps = sorted(speed_df["lap"].unique())
+    if len(laps) < 3:
+        st.warning("Not enough laps for averaging.")
+        return
 
-    per_lap_dist = []
-    for lap in mid_laps:
+    # -----------------------------
+    # Compute speed-distance per lap
+    # -----------------------------
+    def compute_distance(df_lap):
+        df_lap = df_lap.sort_values("timestamp").copy()
+        df_lap["dt"] = df_lap["timestamp"].diff().dt.total_seconds().fillna(0)
+        df_lap["distance"] = (df_lap["speed"] * df_lap["dt"]).cumsum()
+        return df_lap
+
+    per_lap_traces = {}
+    lap_total_speed = {}
+
+    for lap in laps:
         lap_df = speed_df[speed_df["lap"] == lap]
-        if not lap_df.empty:
-            per_lap_dist.append(compute_distance(lap_df))
+        if lap_df.empty:
+            continue
+        lap_dist = compute_distance(lap_df)
+        per_lap_traces[lap] = lap_dist
+        lap_total_speed[lap] = lap_dist["speed"].mean()   # fastest lap = highest avg speed
 
-    if not per_lap_dist:
-        st.warning("No valid laps for averaging speed–distance.")
+    # -----------------------------
+    # Determine FASTEST LAP
+    # -----------------------------
+    fastest_lap = max(lap_total_speed, key=lap_total_speed.get)
+    fastest_trace = per_lap_traces[fastest_lap]
+
+    # -----------------------------
+    # Determine MID SESSION LAPS
+    # -----------------------------
+    if len(laps) > 10:
+        mid_laps = laps[5:10]
+    else:
+        mid_laps = laps[1:-1]  # skip out-lap & in-lap
+
+    mid_lap_traces = [per_lap_traces[l] for l in mid_laps if l in per_lap_traces]
+
+    if not mid_lap_traces:
+        st.warning("Mid-session laps not available.")
         return
 
-    # -------------------------
-    # NORMALIZE DISTANCE
-    # -------------------------
-    min_end_dist = min(lap["distance"].max() for lap in per_lap_dist)
+    # -----------------------------
+    # Normalize distance & average mid-laps
+    # -----------------------------
+    min_end_dist = min(df_lap["distance"].max() for df_lap in mid_lap_traces)
     dist_grid = np.linspace(0, min_end_dist, 600)
 
-    # -------------------------
-    # INTERPOLATE EACH LAP
-    # -------------------------
-    interp_speeds = [
-        np.interp(dist_grid, lap["distance"].values, lap["speed"].values)
-        for lap in per_lap_dist
-    ]
+    interp_speeds = []
+    for lap_df in mid_lap_traces:
+        interp = np.interp(dist_grid, lap_df["distance"].values, lap_df["speed"].values)
+        interp_speeds.append(interp)
 
     mean_speed = np.mean(np.vstack(interp_speeds), axis=0)
 
-    # -------------------------
-    # PLOT
-    # -------------------------
+    # -----------------------------
+    # Build Plotly Figure
+    # -----------------------------
     fig = go.Figure()
+
+    # Average lap
     fig.add_trace(go.Scatter(
         x=dist_grid,
         y=mean_speed,
         mode="lines",
         line=dict(color="#23F0C7", width=3),
-        name="Average Speed"
+        name="Avg Mid-Session Lap"
     ))
 
+    # Fastest lap interpolated
+    fastest_interp = np.interp(
+        dist_grid,
+        fastest_trace["distance"].values,
+        fastest_trace["speed"].values
+    )
+
+    fig.add_trace(go.Scatter(
+        x=dist_grid,
+        y=fastest_interp,
+        mode="lines",
+        line=dict(color="#FF4F4F", width=2),
+        name=f"Fastest Lap (Lap {fastest_lap})"
+    ))
+
+    # Layout styling
     fig.update_layout(
-        #title="Speed vs Distance",
         template="plotly_dark",
-        xaxis_title="Distance [m]",
-        yaxis_title="Speed [kph]",
-        width=650,
-        height=420,
+        xaxis_title="Distance (m approx.)",
+        yaxis_title="Speed (km/h)",
+        width=700,
+        height=450,
+        legend=dict(
+            x=0.02, y=0.02,
+            xanchor="left",
+            yanchor="bottom",
+            bgcolor="rgba(0,0,0,0.3)"
+        ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)"
     )
 
     st.subheader("Speed vs Distance")
-    st.caption("")
+    st.caption(f"Vehicle {vehicle_number} — Fastest Lap vs Mid-Session Average")
     st.plotly_chart(fig, use_container_width=True)
-    st.caption(f"Averaged from laps mid-race pace laps")
+
 
 
 
