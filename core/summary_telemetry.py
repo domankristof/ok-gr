@@ -174,18 +174,10 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
                 # Need to convert to float because telemetry_value is sometimes read as object/string initially
                 gps_map_data = gps[['lat', 'lon']].astype(float).dropna()
                 if not gps_map_data.empty:
-                    st.map(gps_map_data, zoom=20, size=1)
+                    st.map(gps_map_data, zoom=40, size=0.1)
                 else:
                     st.warning("GPS data (lat/lon) is available but contains no valid numeric points after conversion.")
             except Exception as e:
                 st.error(f"Error drawing st.map (likely non-numeric GPS data): {e}")
-                # Fallback to Matplotlib if st.map fails due to type issues
-                fig, ax = plt.subplots(figsize=(6, 6))
-                ax.plot(gps["lon"], gps["lat"], color="white", linewidth=2)
-                ax.set_title("GPS Trace (Matplotlib Fallback)")
-                ax.axis('equal')
-                ax.set_xticks([])
-                ax.set_yticks([])
-                st.pyplot(fig)
     else:
         st.warning(f"GPS data not found. Check signal names: Lat='{GPS_LAT_NAME}', Lon='{GPS_LON_NAME}'")
