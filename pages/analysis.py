@@ -189,6 +189,8 @@ left,right = st.columns([1,1], gap="medium",width="stretch", vertical_alignment=
 
 #--------------------------------------------
 # Right Side - Race Engineer Chat
+#--------------------------------------------
+# Right Side - Race Engineer Chat
 with right:
     st.subheader("Chat with Your Engineer")
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
@@ -224,8 +226,19 @@ with right:
             elif msg["role"] == "assistant":
                 st.chat_message("assistant", avatar=ENGINEER_AVATAR).write(msg["content"])
 
+        if "summary" in st.session_state:
+            st.write("### Coaching Summary")
+            st.write(st.session_state["summary"])
+
+            st.download_button(
+                label="Download Coaching Summary",
+                data=st.session_state["summary"],
+                file_name="coaching_summary.txt",
+                mime="text/plain"
+            )
+
     # ----------------------------
-    # CHAT INPUT (OUTSIDE LOOP)
+    # CHAT INPUT 
     # ----------------------------
     prompt = st.chat_input("Ask anything about your race data…", key="race_chat_input")
 

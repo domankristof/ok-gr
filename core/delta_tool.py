@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import math
+
 
 def time_to_seconds(t):
     """Convert time formats like '1:25.342' or '55.123' into seconds as float.

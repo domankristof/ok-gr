@@ -68,6 +68,55 @@ def tool_time_to_seconds(t: str):
         return {"seconds": core_time_to_seconds(t)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    
+
+def tool_generate_session_summary(chat_history: str):
+    """
+    Takes the full chat history as a string and returns:
+    - a session summary
+    - coaching points
+    - a downloadable text file path
+    """
+
+    from datetime import datetime
+
+    # 1. Ask GPT to summarise and generate coaching points
+    summary_prompt = f"""
+    You are a race engineer. Summarise this coaching session into:
+    1) Driver session summary
+    2) Driving strengths
+    3) Driving weaknesses
+    4) Top priority coaching points (3 bullets MAX)
+    5) Suggested next steps
+
+    Chat history:
+    {chat_history}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "You are a race engineer."},
+            {"role": "user", "content": summary_prompt}
+        ]
+    )
+
+    summary_text = response.choices[0].message.content
+
+    # 2. Create a downloadable file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"coaching_summary_{timestamp}.txt"
+    filepath = os.path.join("/tmp", filename)
+
+    with open(filepath, "w") as f:
+        f.write(summary_text)
+
+    return {
+        "status": "success",
+        "summary": summary_text,
+        "file_path": filepath
+    }
+
 
 
 # ----------------------------
@@ -131,14 +180,33 @@ tools = [
                 "required": ["t"]
             }
         }
-    }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "tool_generate_session_summary",
+            "description": "Summarise the entire chat session and extract coaching points.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "chat_history": {
+                        "type": "string",
+                        "description": "Full conversation history"
+                    }
+                },
+                "required": ["chat_history"]
+            }
+        }
+    },
 ]
 
 # Map tool names to Python functions
 tool_map = {
     "tool_compute_reference_laps": tool_compute_reference_laps,
     "tool_compute_deltas": tool_compute_deltas,
-    "tool_time_to_seconds": tool_time_to_seconds
+    "tool_time_to_seconds": tool_time_to_seconds,
+    "tool_generate_session_summary": tool_generate_session_summary,
 }
 
 
@@ -150,66 +218,93 @@ You are a seasoned race engineer with deep experience in GT racing,
 touring cars, F1, and driver development. You speak concisely, clearly, and with
 engineering precision. You always provide actionable insights grounded in data,
 race craft, and vehicle dynamics. You explain your reasoning like a professional
-race engineer talking to a driver.
+race engineer talking to a driver. When the user asks for a session summary, coaching summary, 
+training summary, improvement plan, or anything similar, call the function tool_generate_session_summary and pass the entire chat history (excluding tool messages) as a single string under `chat_history`.
+
 """
 
 # ----------------------------
 # Agent Execution Function
 # ----------------------------
 def run_agent(messages: list):
+
     # Ensure persona
     if not any(m.get("role") == "system" for m in messages):
         messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     while True:
-        # Call OpenAI
+
+        # ---------------------------------------------------------------------
+        # Prepare full chat history so GPT can pass it into tool_generate_summary
+        # ---------------------------------------------------------------------
+        chat_history_text = "\n".join(
+            f"{m['role']}: {m['content']}"
+            for m in messages
+            if m["role"] != "tool"
+        )
+
+        # ---------------------------------------------------------------------
+        # MAIN MODEL CALL
+        # We append chat_history_text as a system message so GPT can use it
+        # ---------------------------------------------------------------------
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
-            messages=messages,
+            messages=messages + [
+                {
+                    "role": "system",
+                    "content": f"FULL_CHAT_HISTORY_START\n{chat_history_text}\nFULL_CHAT_HISTORY_END"
+                }
+            ],
             tools=tools,
             tool_choice="auto"
         )
 
         msg = response.choices[0].message
 
-        # Convert to simple dict
+        # Basic assistant message
         msg_dict = {
             "role": msg.role,
             "content": msg.content,
         }
 
-        # If the assistant is requesting a tool call
+        # Record requested tool calls
         if msg.tool_calls:
             msg_dict["tool_calls"] = msg.tool_calls
 
-        # Add assistant message to chat history
         messages.append(msg_dict)
 
-        # ------------------------------
-        # HANDLE TOOL CALLS
-        # ------------------------------
+        # ---------------------------------------------------------------------
+        # TOOL EXECUTION
+        # ---------------------------------------------------------------------
         if msg.tool_calls:
             for tool_call in msg.tool_calls:
 
-                # Extract name (NEW SDK)
                 name = tool_call.function.name
-
-                # Extract args (NEW SDK)
                 args = json.loads(tool_call.function.arguments)
 
-                # Call your Python function
                 tool_fn = tool_map[name]
                 result = tool_fn(**args)
 
-                # Append tool message IMMEDIATELY after assistant tool call
+                # Special case: summary tool
+                if name == "tool_generate_session_summary":
+                    try:
+                        summary_text = result.get("summary")
+                        if summary_text:
+                            st.session_state["summary"] = summary_text
+                    except:
+                        pass
+
+                # Append tool result
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "content": json.dumps(result),
                 })
 
-            # After adding all tool results, continue the loop
+            # Loop again to allow GPT to read tool output
             continue
 
-        # No tool calls → final model answer
+        # ---------------------------------------------------------------------
+        # NO TOOL CALL → FINAL ANSWER
+        # ---------------------------------------------------------------------
         return msg.content
