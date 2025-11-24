@@ -20,6 +20,10 @@ def render_weather_summary(weather_file):
     avg_wind = df["WIND_SPEED"].mean()
     rain_detected = df["RAIN"].sum() > 0
 
+    air_temp_data = df["AIR_TEMP"]
+    track_temp_data = df["TRACK_TEMP"]
+    wind_speed_data = df["WIND_SPEED"]
+
     # --- WEATHER ICON LOGIC ---
     if rain_detected:
         icon = "🌧️"
@@ -37,8 +41,16 @@ def render_weather_summary(weather_file):
 
     st.markdown(
         f"""
-        <div style="font-size: 26px; font-weight: 400; margin-top: -10px;">
-            {icon} Session Conditions: {status}
+        <div style="font-size: 26px; font-weight: 600; margin-top: -10px;">
+            Session Conditions
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <div style="font-size: 22px; font-weight: 400; margin-top: 10px;">
+            {icon} {status}
         </div>
         """,
         unsafe_allow_html=True,
@@ -47,19 +59,12 @@ def render_weather_summary(weather_file):
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
     # --- METRICS ROW 1 ---
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Air Temp (°C)", f"{avg_air:.1f}")
+        st.metric("Air Temp (°C)", f"{avg_air:.1f}",chart_type="line", chart_data=air_temp_data)
     with col2:
-        st.metric("Track Temp (°C)", f"{avg_track:.1f}")
+        st.metric("Track Temp (°C)", f"{avg_track:.1f}",chart_type="line", chart_data=track_temp_data)
     with col3:
-        st.metric("Humidity (%)", f"{avg_humidity:.1f}")
-
-    # --- METRICS ROW 2 ---
-    col4, col5, col6 = st.columns(3)
+        st.metric("Wind Speed (m/s)", f"{avg_wind:.1f}",chart_type="line", chart_data=wind_speed_data)
     with col4:
-        st.metric("Wind Speed (m/s)", f"{avg_wind:.1f}")
-    with col5:
-        st.metric("Pressure (hPa)", f"{df['PRESSURE'].mean():.1f}")
-    with col6:
-        st.metric("Rain Events", "Yes" if rain_detected else "No")
+        st.metric("Humidity (%)", f"{avg_humidity:.1f}")

@@ -27,10 +27,6 @@ def load_parquet_from_supabase(filename: str) -> pd.DataFrame:
     try:
         table = pq.read_table(pa.BufferReader(data))
         
-        # --- DEBUGGING START ---
-        st.info(f"PyArrow read successful. Detected columns: {table.num_columns}. Rows: {table.num_rows}.")
-        # --- DEBUGGING END ---
-        
         # If loaded successfully and has > 1 column, return it
         if table.num_columns > 1 and table.num_rows > 1:
             df = table.to_pandas(split_blocks=True, self_destruct=True)
@@ -57,8 +53,6 @@ def _handle_fake_parquet(data: bytes) -> pd.DataFrame:
     for encoding in ENCODING_FALLBACK:
         try:
             csv_data = data.decode(encoding)
-            # Success, break the loop
-            st.info(f"Successfully decoded using {encoding}.")
             break
         except UnicodeDecodeError:
             continue # Try the next encoding
@@ -70,7 +64,6 @@ def _handle_fake_parquet(data: bytes) -> pd.DataFrame:
     # 2. Parse the decoded text as a CSV
     try:
         data_buffer = io.StringIO(csv_data)
-        # 🚀 FINAL FIX: Add on_bad_lines='skip' to ignore rows with inconsistent field counts (like saw 20 instead of 18)
         df = pd.read_csv(data_buffer, sep=';', header=0, on_bad_lines='skip') 
         
     except Exception as e:

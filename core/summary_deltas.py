@@ -66,8 +66,6 @@ def summary_deltas(sectors_file, car_number: int):
         sector3_col: driver_df[sector3_col].min(),
         lap_time_col: driver_df[lap_time_col].min(),
     }
-    st.write("Personal Bests:")
-    st.write(personal_bests)
 
     # Calculate Optimal Lap (sum of the personal best sectors)
     optimal_lap = (
@@ -75,7 +73,6 @@ def summary_deltas(sectors_file, car_number: int):
         + personal_bests[sector2_col]
         + personal_bests[sector3_col]
     )
-    st.write(f"Optimal Lap Time: {optimal_lap}")
 
     # Global best sectors (leader)
     session_bests = {
@@ -84,8 +81,6 @@ def summary_deltas(sectors_file, car_number: int):
         sector3_col: df[sector3_col].min(),
         lap_time_col: df[lap_time_col].min(),
     }
-    st.write("Session Bests (Leader):")
-    st.write(session_bests)
 
     # ---------- GLOBAL BEST DELTAS ----------
     # Convert lap times to seconds for correct math
@@ -100,14 +95,17 @@ def summary_deltas(sectors_file, car_number: int):
         "Optimal Lap Delta": optimal_lap - session_best_lap_s,
     }
 
-    st.write("### Global Best Deltas")
+    # Convert lap times from strings → seconds
+    session_best_lap_s = time_to_seconds(session_bests[lap_time_col])
+    optimal_lap_s = float(optimal_lap)  # already numeric
 
+    optimal_lap_delta_vs_leader = session_best_lap_s - optimal_lap_s
+
+    st.subheader("Sector Times")
     cols = st.columns(3)
 
-    cols[0].metric("S1 PB Δ", f"{sector_deltas['Sector 1 PB Delta']:+.3f}s")
-    cols[1].metric("S2 PB Δ", f"{sector_deltas['Sector 2 PB Delta']:+.3f}s")
-    cols[2].metric("S3 PB Δ", f"{sector_deltas['Sector 3 PB Delta']:+.3f}s")
+    cols[0].metric("Sector 1 PB", f"{personal_bests[sector1_col]:.3f}s", delta=f"{(session_bests[sector1_col]-personal_bests[sector1_col]):.3f}s vs Leader")
+    cols[1].metric("Sector 2 PB", f"{personal_bests[sector2_col]:.3f}s", delta=f"{(session_bests[sector2_col]-personal_bests[sector2_col]):.3f}s vs Leader")
+    cols[2].metric("Sector 3 PB", f"{personal_bests[sector3_col]:.3f}s", delta=f"{(session_bests[sector3_col]-personal_bests[sector3_col]):.3f}s vs Leader")
 
-    cols = st.columns(2)
-    cols[0].metric("Lap PB Δ", f"{sector_deltas['Lap PB Delta']:+.3f}s")
-    cols[1].metric("Optimal Lap Δ", f"{sector_deltas['Optimal Lap Delta']:+.3f}s")
+    st.metric("Optimal Lap",f"{optimal_lap:.3f}s", delta=f"{optimal_lap_delta_vs_leader:.3f}s from Leader",delta_color="off")

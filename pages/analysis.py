@@ -290,7 +290,7 @@ with left:
             st.error(f"Error displaying summary stats: {e}")
 
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
 
     #Weather Summary
@@ -303,20 +303,14 @@ with left:
             st.error(f"Error displaying weather summary: {e}")
 
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
     summary_of_deltas = summary_deltas(sectors_file, car_number=2)
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-
-
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
     #Summary Telemetry
     try:
-        if telemetry_df is None:
-            st.warning("No telemetry data found — upload data first.")
-        else:
-            telemetry_summary = summarize_telemetry(telemetry_df, car_number)
+        telemetry_summary = summarize_telemetry(telemetry_file, car_number)
     except Exception as e:
         st.error(f"Error loading telemetry data: {e}")
