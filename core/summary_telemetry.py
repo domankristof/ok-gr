@@ -352,154 +352,149 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
 def speed_distance_plot(telemetry_df: pd.DataFrame, vehicle_number: int):
     """
     Build a speed–distance plot:
-      • Detects the fastest lap automatically from telemetry
-      • Computes speed–distance traces for individual laps
+      • Automatically finds fastest lap
+      • Computes speed–distance for each lap
       • Averages mid-session laps
-      • Overlays FASTEST LAP vs AVERAGE MID-LAPS
+      • Interpolates both onto same distance grid
+      • Applies vertical exaggeration to highlight differences
     """
 
-    # Clean columns
+    import plotly.graph_objects as go
+    import numpy as np
+    import pandas as pd
+
     df = telemetry_df.copy()
     df.columns = df.columns.str.strip()
 
-    # Ensure correct formats
+    # ---- Basic cleanup ----
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df["telemetry_value"] = pd.to_numeric(df["telemetry_value"], errors="coerce")
     df["vehicle_number"] = pd.to_numeric(df["vehicle_number"], errors="coerce")
-
     df = df.dropna(subset=["timestamp"])
+
+    # Keep only this car
     df = df[df["vehicle_number"] == vehicle_number]
 
     if df.empty:
-        st.warning(f"No telemetry found for vehicle {vehicle_number}.")
+        st.warning("No telemetry for this vehicle.")
         return
 
-    # -----------------------------
-    # Extract speed channel ONLY
-    # -----------------------------
+    # ---- Extract SPEED ----
     SPEED_SIGNAL = "speed"
-
     speed_df = df[df["telemetry_name"].str.lower() == SPEED_SIGNAL.lower()].copy()
 
     if speed_df.empty:
-        st.warning("No speed data found in telemetry.")
+        st.warning("No SPEED channel found.")
         return
 
-    # Remove any NaNs, sort by time
     speed_df = speed_df.dropna(subset=["lap", "timestamp", "telemetry_value"])
     speed_df = speed_df.rename(columns={"telemetry_value": "speed"})
     speed_df = speed_df.sort_values("timestamp")
 
+    # ---- Group by lap ----
     laps = sorted(speed_df["lap"].unique())
     if len(laps) < 3:
-        st.warning("Not enough laps for averaging.")
+        st.warning("Not enough laps for analysis.")
         return
 
-    # -----------------------------
-    # Compute speed-distance per lap
-    # -----------------------------
-    def compute_distance(df_lap):
-        df_lap = df_lap.sort_values("timestamp").copy()
-        df_lap["dt"] = df_lap["timestamp"].diff().dt.total_seconds().fillna(0)
-        df_lap["distance"] = (df_lap["speed"] * df_lap["dt"]).cumsum()
-        return df_lap
+    # ---- Build distance for each lap ----
+    def compute_distance(lap_df):
+        lap_df = lap_df.sort_values("timestamp").copy()
+        lap_df["dt"] = lap_df["timestamp"].diff().dt.total_seconds().fillna(0)
+        lap_df["distance"] = (lap_df["speed"] * lap_df["dt"]).cumsum()
+        return lap_df
 
-    per_lap_traces = {}
-    lap_total_speed = {}
+    per_lap = {}
+    lap_avg_speed = {}
 
     for lap in laps:
-        lap_df = speed_df[speed_df["lap"] == lap]
-        if lap_df.empty:
-            continue
-        lap_dist = compute_distance(lap_df)
-        per_lap_traces[lap] = lap_dist
-        lap_total_speed[lap] = lap_dist["speed"].mean()   # fastest lap = highest avg speed
+        ldf = speed_df[speed_df["lap"] == lap]
+        if not ldf.empty:
+            dist_df = compute_distance(ldf)
+            per_lap[lap] = dist_df
+            lap_avg_speed[lap] = dist_df["speed"].mean()   # proxy for fastest
 
-    # -----------------------------
-    # Determine FASTEST LAP
-    # -----------------------------
-    fastest_lap = max(lap_total_speed, key=lap_total_speed.get)
-    fastest_trace = per_lap_traces[fastest_lap]
+    # ---- FASTEST LAP ----
+    fastest_lap = max(lap_avg_speed, key=lap_avg_speed.get)
+    fastest_df = per_lap[fastest_lap]
 
-    # -----------------------------
-    # Determine MID SESSION LAPS
-    # -----------------------------
+    # ---- MID SESSION LAPS ----
     if len(laps) > 10:
         mid_laps = laps[5:10]
     else:
-        mid_laps = laps[1:-1]  # skip out-lap & in-lap
+        mid_laps = laps[1:-1]
 
-    mid_lap_traces = [per_lap_traces[l] for l in mid_laps if l in per_lap_traces]
+    mid_lap_traces = [per_lap[l] for l in mid_laps if l in per_lap]
 
     if not mid_lap_traces:
-        st.warning("Mid-session laps not available.")
+        st.warning("No mid-session laps available.")
         return
 
-    # -----------------------------
-    # Normalize distance & average mid-laps
-    # -----------------------------
+    # ---- DISTANCE GRID ----
     min_end_dist = min(df_lap["distance"].max() for df_lap in mid_lap_traces)
     dist_grid = np.linspace(0, min_end_dist, 600)
 
-    interp_speeds = []
+    # ---- Interpolate mid-laps ----
+    interp_mid = []
     for lap_df in mid_lap_traces:
-        interp = np.interp(dist_grid, lap_df["distance"].values, lap_df["speed"].values)
-        interp_speeds.append(interp)
+        interp = np.interp(dist_grid, lap_df["distance"], lap_df["speed"])
+        interp_mid.append(interp)
 
-    mean_speed = np.mean(np.vstack(interp_speeds), axis=0)
+    mean_speed = np.mean(np.vstack(interp_mid), axis=0)
 
-    # -----------------------------
-    # Build Plotly Figure
-    # -----------------------------
+    # ---- Interpolate fastest lap ----
+    fastest_interp = np.interp(dist_grid, fastest_df["distance"], fastest_df["speed"])
+
+    # ---- VERTICAL EXAGGERATION ----
+    VERTICAL_SCALE = 1.25
+    scaled_mean = mean_speed * VERTICAL_SCALE
+    scaled_fast = fastest_interp * VERTICAL_SCALE
+
+    # ---- Plot ----
     fig = go.Figure()
 
-    # Average lap
     fig.add_trace(go.Scatter(
         x=dist_grid,
-        y=mean_speed,
+        y=scaled_mean,
         mode="lines",
         line=dict(color="#23F0C7", width=3),
         name="Avg Mid-Session Lap"
     ))
 
-    # Fastest lap interpolated
-    fastest_interp = np.interp(
-        dist_grid,
-        fastest_trace["distance"].values,
-        fastest_trace["speed"].values
-    )
-
     fig.add_trace(go.Scatter(
         x=dist_grid,
-        y=fastest_interp,
+        y=scaled_fast,
         mode="lines",
         line=dict(color="#FF4F4F", width=2),
         name=f"Fastest Lap (Lap {fastest_lap})"
     ))
 
-    # Layout styling
+    # ---- Correct axis labels (remove scaling) ----
+    fig.update_yaxes(
+        tickvals=[v * VERTICAL_SCALE for v in range(0, 260, 20)],
+        ticktext=[f"{v}" for v in range(0, 260, 20)],
+        title="Speed [km/h]"
+    )
+
     fig.update_layout(
         template="plotly_dark",
-        xaxis_title="Distance (m approx.)",
-        yaxis_title="Speed (km/h)",
+        xaxis_title="Distance [m approx.]",
         width=700,
-        height=450,
+        height=430,
         legend=dict(
-            x=0.02, y=0.02,
-            xanchor="left",
-            yanchor="bottom",
-            bgcolor="rgba(0,0,0,0.3)"
+            x=0.98, y=0.98,
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(0,0,0,0.4)"
         ),
+        margin=dict(l=20, r=20, t=20, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)"
     )
 
     st.subheader("Speed vs Distance")
-    st.caption(f"Vehicle {vehicle_number} — Fastest Lap vs Mid-Session Average")
+    st.caption(f"Vehicle {vehicle_number} – Fastest Lap vs Mid-Race Push Laps")
     st.plotly_chart(fig, use_container_width=True)
-
-
-
 
 
 def gg_plot(df: pd.DataFrame, vehicle_number: int):
@@ -648,7 +643,7 @@ def gg_plot(df: pd.DataFrame, vehicle_number: int):
 
     def gg_circle_with_envelope(gg_df):
         st.subheader("'GG' Plot & Traction Margins")
-        st.write("Traction envolope usage over mid-race pace laps")
+        st.caption("Traction envolope usage over mid-race push laps")
 
         # Use the renamed, cleaned columns
         x = gg_df["long_g"].values
@@ -737,17 +732,16 @@ def gg_plot(df: pd.DataFrame, vehicle_number: int):
             # Transparent backgrounds
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=20, r=20, t=20, b=20),
 
             # Legend bottom-right overlay
             legend=dict(
                 x=0.99,
-                y=0.01,
+                y=0.99,
                 xanchor="right",
-                yanchor="bottom",
+                yanchor="top",
                 bgcolor="rgba(0,0,0,0.35)",
-                bordercolor="rgba(255,255,255,0.2)",
-                borderwidth=1,
-                font=dict(size=10)
+                font=dict(size=12)
             ),
         )
 
