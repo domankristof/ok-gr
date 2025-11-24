@@ -3,16 +3,13 @@ streamlit
 plotly
 pandas
 numpy
-
 # Telemetry + file handling
 pyarrow
 python-dotenv
-
 # Backend + APIs
 openai>=1.55.0
 supabase
 requests
-
 # Optional safety / typical libraries you use
 matplotlib
 scipy
