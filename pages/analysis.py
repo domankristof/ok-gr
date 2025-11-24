@@ -12,6 +12,8 @@ from core.summary_key_stats import display_key_summary_stats
 from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
 from core.summary_deltas import summary_deltas
+from core.summary_telemetry import speed_distance_plot
+from core.summary_telemetry import gg_plot
 
 
 # =========================================================
@@ -344,6 +346,8 @@ with left:
     st.subheader("Data Summary")
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
+    speed_distance_plot(telemetry_file,car_number)
+
     #Key Summary Stats
     if laps_file is None:
         st.warning("No laps file found — upload data first.")
@@ -353,9 +357,7 @@ with left:
         except Exception as e:
             st.error(f"Error displaying summary stats: {e}")
 
-
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-
 
     #Weather Summary
     if weather_file is None:
@@ -366,15 +368,14 @@ with left:
         except Exception as e:
             st.error(f"Error displaying weather summary: {e}")
 
-
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
+        #Summary Telemetry
+    try:
+        telemetry_summary = gg_plot(telemetry_file, car_number)
+    except Exception as e:
+        st.error(f"Error loading telemetry data: {e}")
 
     summary_of_deltas = summary_deltas(sectors_file, car_number)
 
     st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
 
-    #Summary Telemetry
-    try:
-        telemetry_summary = summarize_telemetry(telemetry_file, car_number)
-    except Exception as e:
-        st.error(f"Error loading telemetry data: {e}")
