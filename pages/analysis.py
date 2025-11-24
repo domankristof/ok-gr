@@ -3,7 +3,7 @@ import streamlit as st
 import numpy as np
 
 from core.gr_agent import run_agent
-from core.load_telemetry import load_parquet_from_supabase
+from core.load_telemetry import load_parquet_from_supabase_filtered
 
 from core.determine_reference_tool import compute_reference_laps
 from core.delta_tool import deltas_tool, time_to_seconds
@@ -13,51 +13,53 @@ from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
 from core.summary_deltas import summary_deltas
 
-# Guard: required session_state variables must exist
+
+# =========================================================
+# PAGE CONFIG (MUST COME FIRST)
+# =========================================================
+st.set_page_config(
+    page_title="Analysis - OK GR",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+
+# =========================================================
+# REQUIRED SESSION STATE VARIABLES
+# =========================================================
 required = ["car_number", "laps_file", "weather_file", "sectors_file", "telemetry_session"]
 
 missing = [r for r in required if r not in st.session_state or st.session_state[r] in [None, ""]]
 
 if missing:
-    st.error(
-        "⚠️ Some required data is missing:\n\n"
-        + "\n".join([f"- {m}" for m in missing])
-        + "\n\nPlease return to the upload page and upload all files."
-    )
+    st.error("⚠️ Missing required data:")
+    st.write(missing)
     st.stop()
 
 
 # =========================================================
-# 1. TOP-LEVEL CACHED LOADER
+# CAR NUMBER
 # =========================================================
-@st.cache_resource(show_spinner="Loading telemetry…")
-def load_cached_telemetry(file_name: str):
-    """Loads a telemetry Parquet file from Supabase only once."""
-    return load_parquet_from_supabase(file_name)
+raw_car = st.session_state.get("car_number")
 
-
-# =========================================================
-# 2. LOAD SESSION INPUTS
-# =========================================================
-car_number = st.session_state.get("car_number")
 try:
-    car_number = int(str(car_number).strip())
+    car_number = int(str(raw_car).strip())
 except:
     st.error("Invalid car number.")
     st.stop()
 
-laps_file = st.session_state.get("laps_file")
-weather_file = st.session_state.get("weather_file")
+
+laps_file = st.session_state.laps_file
+weather_file = st.session_state.weather_file
 results_file = st.session_state.get("results_file")
-sectors_file = st.session_state.get("sectors_file")
+sectors_file = st.session_state.sectors_file
 
 
 # =========================================================
-# 3. RESOLVE TELEMETRY FILE NAME
+# TELEMETRY FILE MAPPING
 # =========================================================
-telemetry_session = st.session_state.get("telemetry_session")
-
-mapping = {
+telemetry_map = {
     "Virginia International Raceway - Race 1": "r1_vir_telemetry_data.parquet",
     "Virginia International Raceway - Race 2": "r2_vir_telemetry_data.parquet",
 
@@ -68,43 +70,49 @@ mapping = {
     "Circuit of The Americas - Race 2": "r2_cota_telemetry_data.parquet",
 }
 
-if telemetry_session not in mapping:
-    st.error("Telemetry session unknown — cannot load telemetry.")
+session_name = st.session_state.telemetry_session
+
+if session_name not in telemetry_map:
+    st.error("Unknown telemetry session.")
     st.stop()
 
-telemetry_file_name = mapping[telemetry_session]
+parquet_file_name = telemetry_map[session_name]
 
 
 # =========================================================
-# 4. LOAD CACHED TELEMETRY
+# CAR-ONLY TELEMETRY LOADER (CACHED)
 # =========================================================
+@st.cache_resource(show_spinner="Loading telemetry for this car…")
+def load_car_telemetry(parquet_name: str, car_number: int):
+    minimal_cols = ["timestamp", "vehicle_number", "telemetry_name", "telemetry_value"]
 
+    # Load ONLY these columns (memory-safe)
+    df = load_parquet_from_supabase_filtered(parquet_name, minimal_cols)
+
+    # Filter to car number
+    df = df[df["vehicle_number"] == car_number]
+
+    return df
+
+
+# =========================================================
+# LOAD TELEMETRY INTO SESSION
+# =========================================================
 if "telemetry_file" not in st.session_state:
-
     try:
-        # load from supabase with caching
-        telemetry_file = load_cached_telemetry(telemetry_file_name)
-        st.session_state.telemetry_file = telemetry_file
-
+        st.session_state.telemetry_file = load_car_telemetry(
+            parquet_file_name,
+            car_number
+        )
     except Exception as e:
-        st.error(f"Error loading telemetry: {e}")
+        st.error(f"Telemetry load failed: {e}")
         st.stop()
 
 telemetry_file = st.session_state.telemetry_file
 
-
-# ----------------------------
-# Page & Theme
-# ----------------------------
-# Page Config
-st.set_page_config(
-    page_title="Analysis - OK GR",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
+#-------------------------------------------------------------
 # Apply CSS
+#-------------------------------------------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap');

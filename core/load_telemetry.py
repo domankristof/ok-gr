@@ -77,3 +77,12 @@ def _handle_fake_parquet(data: bytes) -> pd.DataFrame:
             df[col] = df[col].astype(str).str.strip()
 
     return df
+
+
+def load_parquet_from_supabase_filtered(fname: str, columns: list):
+    """
+    Downloads a Parquet file from Supabase and loads ONLY the columns requested.
+    """
+    data = supabase.storage.from_(BUCKET).download(fname)
+    table = pq.read_table(io.BytesIO(data), columns=columns)
+    return table.to_pandas()
