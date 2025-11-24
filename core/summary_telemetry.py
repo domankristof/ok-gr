@@ -264,14 +264,91 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
         st.plotly_chart(fig)
 
     # -------------------------
-    # Call the plot
+    # Call GG plot
     # -------------------------
     if not gg_mid.empty:
         gg_circle_with_envelope(gg_mid)
     else:
         st.warning("Not enough G-force data to compute traction map.")
 
+    #-------------------------------------------------------------------
+    #-------------------------------------------------------------------
     
+    def speed_vs_distance_plot(user_df, laps_used):
+        SPEED_SIGNAL = "Speed"  # change if your column is different
+
+        # Extract speed rows
+        speed_df = user_df[user_df["telemetry_name"].str.lower() == SPEED_SIGNAL.lower()].copy()
+        speed_df = speed_df[["timestamp", "lap", "telemetry_value"]].rename(columns={
+            "telemetry_value": "speed"
+        })
+
+        if speed_df.empty:
+            st.warning("No speed data available for this vehicle.")
+            return
+        
+        # Filter laps
+        speed_df = speed_df[speed_df["lap"].isin(laps_used)]
+
+        def compute_distance(df_lap):
+            df_lap = df_lap.sort_values("timestamp").copy()
+            df_lap["dt"] = df_lap["timestamp"].diff().dt.total_seconds().fillna(0)
+            df_lap["distance"] = (df_lap["speed"] * df_lap["dt"]).cumsum()
+            return df_lap
+
+        dist_laps = []
+        for lap in laps_used:
+            lap_df = speed_df[speed_df["lap"] == lap]
+            if not lap_df.empty:
+                dist_laps.append(compute_distance(lap_df))
+
+        if len(dist_laps) == 0:
+            st.warning("No usable laps to compute speed–distance plot.")
+            return
+
+        # Normalize distance
+        max_dist = min(df["distance"].max() for df in dist_laps)
+        dist_grid = np.linspace(0, max_dist, 500)
+
+        interp_speeds = []
+        for lap_df in dist_laps:
+            interp = np.interp(
+                dist_grid,
+                lap_df["distance"].values,
+                lap_df["speed"].values
+            )
+            interp_speeds.append(interp)
+
+        mean_speed = np.mean(np.vstack(interp_speeds), axis=0)
+
+        # Plot
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=dist_grid,
+            y=mean_speed,
+            mode="lines",
+            line=dict(color="#23F0C7", width=3),
+            name="Avg Speed"
+        ))
+
+        fig.update_layout(
+            template="plotly_dark",
+            xaxis_title="Distance (m approx.)",
+            yaxis_title="Speed",
+            width=650,
+            height=350,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
+
+        st.subheader("Speed vs Distance (Average of Mid-Session Laps)")
+        st.plotly_chart(fig, use_container_width=True)
+    # -------------------------
+    # Call SPEED vs DISTANCE PLOT
+    # -------------------------
+    speed_vs_distance_plot(user_df, mid_laps)
+
+
     # -------------------------
     # PLOTS
     # -------------------------
