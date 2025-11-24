@@ -20,7 +20,6 @@ def display_key_summary_stats(top_10_laps_file, car_number: int):
 
     num_of_drivers = df["NUMBER"].nunique()
 
-
     # Filter driver
     driver_df = df[df["NUMBER"] == car_number]
     if driver_df.empty:
@@ -43,14 +42,22 @@ def display_key_summary_stats(top_10_laps_file, car_number: int):
 
     personal_best = min(driver_times)
 
-    # Session times
-    session_times = df_lap_times.values.flatten()
-    session_times = session_times[pd.notnull(session_times)]
+    # Compute each driver's personal best
+    df["best_lap"] = df_lap_times.min(axis=1)
+    driver_best_times = (
+        df.groupby("NUMBER")["best_lap"]
+        .min()
+        .dropna()
+    )
 
-    session_fastest = min(session_times)
-    session_sorted = sorted(session_times)
-    driver_position = session_sorted.index(personal_best) + 1
-    gap_to_fastest = session_fastest - personal_best
+    # Session fastest
+    session_fastest = driver_best_times.min()
+
+    # Compute driver position
+    sorted_best_times = sorted(driver_best_times.values)
+    driver_position = sorted_best_times.index(personal_best) + 1
+
+    gap_to_fastest = personal_best - session_fastest
 
     # Display metrics
     col1,col2,col3 = st.columns(3, gap="small", width="stretch")
@@ -69,10 +76,3 @@ def display_key_summary_stats(top_10_laps_file, car_number: int):
             "⚡ Fastest Lap in the Session",
             f"{session_fastest:.3f} s"
         )
-    
-    return {
-        "personal_best": personal_best,
-        "driver_position": driver_position,
-        "session_fastest": session_fastest,
-        "gap_to_fastest": gap_to_fastest
-    }

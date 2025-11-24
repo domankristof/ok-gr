@@ -140,9 +140,23 @@ st.markdown("""<h4 style="font-weight:500">📁 Upload Your Racing Data</h4>""",
 
 with st.expander("📁 Upload CSVs", expanded=True):
     
-    car_number = st.selectbox(
-        "Select Your Car Number",
-        options=[2, 72, 8, 16, 20, 22])
+    raw_car_number = st.text_input("Enter Your Vehicle Number")
+    try:
+        car_number = int(raw_car_number)
+    except:
+        car_number = None
+    
+    telemetry_session = st.selectbox(
+        "Select Your Telemetry Session",
+        options=[
+            "Virginia International Raceway - Race 1",
+            "Virginia International Raceway - Race 2",
+            "Indianapolis Motor Speedway - Race 1",
+            "Indianapolis Motor Speedway - Race 2",
+            "Circuit of The Americas - Race 1",
+            "Circuit of The Americas - Race 2"
+        ]
+    )
 
     st.markdown("""<h5 style="font-weight:500">Top 10 Lap Times File</h5>""", unsafe_allow_html=True)
     laps_file = st.file_uploader(
@@ -186,8 +200,9 @@ with st.expander("📁 Upload CSVs", expanded=True):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("🚀 Process Files & Analyze", type="primary", use_container_width=True):
-            if not any([car_number,laps_file, weather_file, results_file, sectors_file]):
-                st.error("Please upload at least one file before submitting.")
+            required = [car_number, laps_file, weather_file, sectors_file]
+            if any(r is None or r == "" for r in required):
+                st.error("Please upload all required files before submitting.")
             else:
                 # Store files in session state
                 st.session_state.car_number = car_number
@@ -195,6 +210,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 st.session_state.weather_file = weather_file
                 st.session_state.results_file = results_file
                 st.session_state.sectors_file = sectors_file
+                st.session_state.telemetry_session = telemetry_session
                 
                 st.success("Files submitted for processing!")
                 # You can add navigation to analysis page here later

@@ -18,7 +18,8 @@ def render_weather_summary(weather_file):
     avg_track = df["TRACK_TEMP"].mean()
     avg_humidity = df["HUMIDITY"].mean()
     avg_wind = df["WIND_SPEED"].mean()
-    rain_detected = df["RAIN"].sum() > 0
+    rain_detected = "Rain Detected" if df["RAIN"].sum() > 0 else "No Rain"
+
 
     air_temp_data = df["AIR_TEMP"]
     track_temp_data = df["TRACK_TEMP"]
@@ -68,3 +69,4 @@ def render_weather_summary(weather_file):
         st.metric("Wind Speed (m/s)", f"{avg_wind:.1f}",chart_type="line", chart_data=wind_speed_data)
     with col4:
         st.metric("Humidity (%)", f"{avg_humidity:.1f}")
+        st.metric("Rain Events", f"{rain_detected}")

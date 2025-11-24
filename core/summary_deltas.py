@@ -102,10 +102,9 @@ def summary_deltas(sectors_file, car_number: int):
     optimal_lap_delta_vs_leader = session_best_lap_s - optimal_lap_s
 
     st.subheader("Sector Times")
-    cols = st.columns(3)
+    cols = st.columns(4)
 
     cols[0].metric("Sector 1 PB", f"{personal_bests[sector1_col]:.3f}s", delta=f"{(session_bests[sector1_col]-personal_bests[sector1_col]):.3f}s vs Leader")
     cols[1].metric("Sector 2 PB", f"{personal_bests[sector2_col]:.3f}s", delta=f"{(session_bests[sector2_col]-personal_bests[sector2_col]):.3f}s vs Leader")
     cols[2].metric("Sector 3 PB", f"{personal_bests[sector3_col]:.3f}s", delta=f"{(session_bests[sector3_col]-personal_bests[sector3_col]):.3f}s vs Leader")
-
-    st.metric("Optimal Lap",f"{optimal_lap:.3f}s", delta=f"{optimal_lap_delta_vs_leader:.3f}s from Leader",delta_color="off")
+    cols[3].metric("Optimal Lap",f"{optimal_lap:.3f}s", delta=f"{optimal_lap_delta_vs_leader:.3f}s from Leader",delta_color="off")
