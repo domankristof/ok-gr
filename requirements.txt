@@ -1,9 +1,18 @@
+# Core app + UI
 streamlit
+plotly
 pandas
 numpy
+
+# Telemetry + file handling
 pyarrow
-requests
-openai
-supabase
 python-dotenv
-plotly
+
+# Backend + APIs
+openai>=1.55.0
+supabase
+requests
+
+# Optional safety / typical libraries you use
+matplotlib
+scipy
