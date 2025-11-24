@@ -3,24 +3,29 @@ import streamlit as st
 import numpy as np
 
 from core.gr_agent import run_agent
-
-# Function to load telemetry data
 from core.load_telemetry import load_parquet_from_supabase
 
-# Tools Functions
 from core.determine_reference_tool import compute_reference_laps
-from core.delta_tool import deltas_tool
-from core.delta_tool import time_to_seconds
+from core.delta_tool import deltas_tool, time_to_seconds
 
-#Summary Functions
 from core.summary_key_stats import display_key_summary_stats
 from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
 from core.summary_deltas import summary_deltas
 
-# ----------------------------
-# Load files from upload page
-# ----------------------------
+
+# =========================================================
+# 1. TOP-LEVEL CACHED LOADER
+# =========================================================
+@st.cache_resource(show_spinner="Loading telemetry…")
+def load_cached_telemetry(file_name: str):
+    """Loads a telemetry Parquet file from Supabase only once."""
+    return load_parquet_from_supabase(file_name)
+
+
+# =========================================================
+# 2. LOAD SESSION INPUTS
+# =========================================================
 car_number = st.session_state.get("car_number")
 try:
     car_number = int(str(car_number).strip())
@@ -33,38 +38,42 @@ weather_file = st.session_state.get("weather_file")
 results_file = st.session_state.get("results_file")
 sectors_file = st.session_state.get("sectors_file")
 
-# Assign Parquet file based on session
+
+# =========================================================
+# 3. RESOLVE TELEMETRY FILE NAME
+# =========================================================
 telemetry_session = st.session_state.get("telemetry_session")
 
-if telemetry_session == "Virginia International Raceway - Race 1":
-    telemetry_session = "r1_vir_telemetry_data.parquet"
-elif telemetry_session == "Virginia International Raceway - Race 2":
-    telemetry_session = "r2_vir_telemetry_data.parquet"
+mapping = {
+    "Virginia International Raceway - Race 1": "r1_vir_telemetry_data.parquet",
+    "Virginia International Raceway - Race 2": "r2_vir_telemetry_data.parquet",
 
-elif telemetry_session == "Indianapolis Motor Speedway - Race 1":
-    telemetry_session = "r1_indianapolis_motor_speedway_telemetry.parquet"
-elif telemetry_session == "Indianapolis Motor Speedway - Race 2":
-    telemetry_session = "r2_indianapolis_motor_speedway_telemetry.parquet"
+    "Indianapolis Motor Speedway - Race 1": "r1_indianapolis_motor_speedway_telemetry.parquet",
+    "Indianapolis Motor Speedway - Race 2": "r2_indianapolis_motor_speedway_telemetry.parquet",
 
-elif telemetry_session == "Circuit of The Americas - Race 1":
-    telemetry_session = "r1_cota_telemetry_data.parquet"
-elif telemetry_session == "Circuit of The Americas - Race 2":
-    telemetry_session = "r2_cota_telemetry_data.parquet"
+    "Circuit of The Americas - Race 1": "r1_cota_telemetry_data.parquet",
+    "Circuit of The Americas - Race 2": "r2_cota_telemetry_data.parquet",
+}
 
-else:
+if telemetry_session not in mapping:
     st.error("Telemetry session unknown — cannot load telemetry.")
     st.stop()
 
-# Load telemetry into session_state if missing
-telemetry_file = st.session_state.get("telemetry_file")
+telemetry_file_name = mapping[telemetry_session]
 
-if telemetry_file is None:
+
+# =========================================================
+# 4. LOAD CACHED TELEMETRY
+# =========================================================
+if "telemetry_file" not in st.session_state:
     try:
-        telemetry_file = load_parquet_from_supabase(telemetry_session)
-        st.session_state["telemetry_file"] = telemetry_file
+        st.session_state.telemetry_file = load_cached_telemetry(telemetry_file_name)
     except Exception as e:
         st.error(f"Error loading telemetry: {e}")
         st.stop()
+
+telemetry_file = st.session_state.telemetry_file
+
 
 
 # ----------------------------
