@@ -26,22 +26,23 @@ try:
     car_number = int(str(car_number).strip())
 except:
     st.error("Invalid car number.")
+    st.stop()
 
 laps_file = st.session_state.get("laps_file")
 weather_file = st.session_state.get("weather_file")
 results_file = st.session_state.get("results_file")
 sectors_file = st.session_state.get("sectors_file")
 
-#Assinging Download URL to Telemetry Session
+# Assign Parquet file based on session
 telemetry_session = st.session_state.get("telemetry_session")
 
 if telemetry_session == "Virginia International Raceway - Race 1":
     telemetry_session = "r1_vir_telemetry_data.parquet"
 elif telemetry_session == "Virginia International Raceway - Race 2":
-        telemetry_session = "r2_vir_telemetry_data.parquet"
+    telemetry_session = "r2_vir_telemetry_data.parquet"
 
 elif telemetry_session == "Indianapolis Motor Speedway - Race 1":
-    telemetry_session ="r1_indianapolis_motor_speedway_telemetry.parquet"
+    telemetry_session = "r1_indianapolis_motor_speedway_telemetry.parquet"
 elif telemetry_session == "Indianapolis Motor Speedway - Race 2":
     telemetry_session = "r2_indianapolis_motor_speedway_telemetry.parquet"
 
@@ -49,18 +50,21 @@ elif telemetry_session == "Circuit of The Americas - Race 1":
     telemetry_session = "r1_cota_telemetry_data.parquet"
 elif telemetry_session == "Circuit of The Americas - Race 2":
     telemetry_session = "r2_cota_telemetry_data.parquet"
-else: 
-    raise IndexError("The telemetry session was not found")
 
-# ----------------------------
-# Load Telemetry Data
-# ----------------------------
-if "telemetry_file" not in st.session_state:
+else:
+    st.error("Telemetry session unknown — cannot load telemetry.")
+    st.stop()
+
+# Load telemetry into session_state if missing
+telemetry_file = st.session_state.get("telemetry_file")
+
+if telemetry_file is None:
     try:
         telemetry_file = load_parquet_from_supabase(telemetry_session)
         st.session_state["telemetry_file"] = telemetry_file
     except Exception as e:
         st.error(f"Error loading telemetry: {e}")
+        st.stop()
 
 
 # ----------------------------

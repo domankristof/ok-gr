@@ -36,12 +36,8 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
 
     # Convert safely (invalid → NaT or NaN)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    
-    # 🚀 FIX: Convert vehicle number to numeric, fill NaNs with a known dummy value (-1), and force integer type.
     df[VEHICLE_COL] = pd.to_numeric(df[VEHICLE_COL], errors="coerce").fillna(-1).astype('int64')
-    
     df["telemetry_value"] = pd.to_numeric(df["telemetry_value"], errors="coerce")
-    
     # Drop invalid timestamps
     df = df.dropna(subset=["timestamp"])
     
@@ -100,15 +96,36 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
     st.header(f"Telemetry Summary for Vehicle {vehicle_number}")
 
     # SPEED PLOT
-    if speed_data.empty:
-        st.warning(f"No speed data available for this vehicle. Check signal name: '{speed_name}'")
-    else:
+    if not speed_data.empty:
         st.subheader(f"Speed Over Time ({speed_name})")
+
+        df_smooth = speed_data.copy()
+        df_smooth["smooth_speed"] = df_smooth["telemetry_value"].rolling(window=200, min_periods=1).mean()
+
+        # --- FIX: convert to python datetime ---
+        min_t = pd.to_datetime(df_smooth["timestamp"].min()).to_pydatetime()
+        max_t = pd.to_datetime(df_smooth["timestamp"].max()).to_pydatetime()
+
+        start_t, end_t = st.slider(
+            "Select time window",
+            min_value=min_t,
+            max_value=max_t,
+            value=(min_t, max_t),
+            format="HH:mm:ss"
+        )
+
+        # --- FIX: Also convert df timestamps to python datetime ---
+        speed_data["ts_py"] = pd.to_datetime(speed_data["timestamp"]).apply(lambda x: x.to_pydatetime())
+
+        mask = (speed_data["ts_py"] >= start_t) & (speed_data["ts_py"] <= end_t)
+        cropped = speed_data[mask]
+
         st.line_chart(
-            data=speed_data.set_index("timestamp"),
+            data=cropped.set_index("ts_py")["telemetry_value"],
             height=300,
             use_container_width=True,
         )
+
     
     # RPM PLOT
     if not engine_rpm_data.empty:

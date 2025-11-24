@@ -57,7 +57,7 @@ def display_key_summary_stats(top_10_laps_file, car_number: int):
     sorted_best_times = sorted(driver_best_times.values)
     driver_position = sorted_best_times.index(personal_best) + 1
 
-    gap_to_fastest = personal_best - session_fastest
+    gap_to_fastest = session_fastest - personal_best
 
     # Display metrics
     col1,col2,col3 = st.columns(3, gap="small", width="stretch")
