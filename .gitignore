@@ -4,7 +4,6 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
-supabase_client.py
 *.parquet
 *.pkl
 *.npz
