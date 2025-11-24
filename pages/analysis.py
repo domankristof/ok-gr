@@ -78,15 +78,19 @@ telemetry_file_name = mapping[telemetry_session]
 # =========================================================
 # 4. LOAD CACHED TELEMETRY
 # =========================================================
+
 if "telemetry_file" not in st.session_state:
+
     try:
-        st.session_state.telemetry_file = load_cached_telemetry(telemetry_file_name)
+        # load from supabase with caching
+        telemetry_file = load_cached_telemetry(telemetry_file_name)
+        st.session_state.telemetry_file = telemetry_file
+
     except Exception as e:
         st.error(f"Error loading telemetry: {e}")
         st.stop()
 
 telemetry_file = st.session_state.telemetry_file
-
 
 
 # ----------------------------
