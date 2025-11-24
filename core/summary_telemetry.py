@@ -174,7 +174,7 @@ def summarize_telemetry(df: pd.DataFrame, vehicle_number: int):
                 # Need to convert to float because telemetry_value is sometimes read as object/string initially
                 gps_map_data = gps[['lat', 'lon']].astype(float).dropna()
                 if not gps_map_data.empty:
-                    st.map(gps_map_data, zoom=40, size=0.1)
+                    st.map(gps_map_data, zoom=30, size=0.01, width="stretch")
                 else:
                     st.warning("GPS data (lat/lon) is available but contains no valid numeric points after conversion.")
             except Exception as e:
