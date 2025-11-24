@@ -27,7 +27,20 @@ weather_file = st.session_state.get("weather_file")
 results_file = st.session_state.get("results_file")
 sectors_file = st.session_state.get("sectors_file")
 # ----------------------------
+# Load Telemetry Data
+# ----------------------------
+if "telemetry_file" not in st.session_state:
+    try:
+        telemetry_file = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
+        st.session_state["telemetry_file"] = telemetry_file
+    except Exception as e:
+        st.error(f"Error loading telemetry: {e}")
 
+
+# ----------------------------
+# Page & Theme
+# ----------------------------
+# Page Config
 st.set_page_config(
     page_title="Analysis - OK GR",
     page_icon="📊",
@@ -35,7 +48,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Apply the same CSS
+# Apply CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap');
@@ -205,6 +218,7 @@ with right:
         st.session_state.messages = [
             {"role": "system", "content": "The laps file is available under key 'laps_file'. Use this key when calling tools."},
             {"role": "system", "content": "The sectors file is available under key 'sectors_file'. Use this key when calling tools."},
+            {"role": "system", "content": "The telemetry data is available under key 'telemetry_file'. Use this key when calling tools."},
             {"role": "assistant", "content": "Alright mate, I've got your session data loaded. Where do you think we can find some time?"}
         ]
 
@@ -300,7 +314,9 @@ with left:
 
     #Summary Telemetry
     try:
-        df = load_parquet_from_supabase("r1_vir_telemetry_data.parquet")
-        telemetry_summary = summarize_telemetry(df, vehicle_number=2)
+        if telemetry_df is None:
+            st.warning("No telemetry data found — upload data first.")
+        else:
+            telemetry_summary = summarize_telemetry(telemetry_df, car_number)
     except Exception as e:
         st.error(f"Error loading telemetry data: {e}")

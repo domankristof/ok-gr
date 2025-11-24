@@ -8,6 +8,7 @@ import streamlit as st
 from core.determine_reference_tool import compute_reference_laps as ref_laps_tool
 from core.delta_tool import deltas_tool as core_deltas_tool
 from core.delta_tool import time_to_seconds as core_time_to_seconds
+from core.telemetry_tools import telemetry_tool as telemetry_summary_tool
 
 
 # ----------------------------
@@ -55,6 +56,24 @@ def tool_compute_deltas(sectors_key: str, car_number: int):
         # Convert DataFrames inside result → JSON
         if "deltas" in result and hasattr(result["deltas"], "to_dict"):
             result["deltas"] = result["deltas"].to_dict(orient="records")
+
+        return {"status": "success", "data": result}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+def tool_telemetry_summary(telemetry_key: str, car_number: int):
+    """
+    Wrapper for your telemetry summary tool. Ensures JSON compatibility.
+    """
+    if telemetry_key not in st.session_state:
+        return {"status": "error", "message": f"No file found for key '{telemetry_key}'"}
+
+    file_obj = st.session_state[telemetry_key]
+
+    try:
+        result = telemetry_summary_tool(file_obj, car_number)
 
         return {"status": "success", "data": result}
 
@@ -199,6 +218,28 @@ tools = [
             }
         }
     },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "tool_telemetry_summary",
+            "description": "Generate a telemetry summary for a given car number from the uploaded telemetry file. This returns data about steering smoothnes score, micro steering corrections, steering usage and more. Use this if user asks about their telemetry data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "telemetry_key": {
+                        "type": "string",
+                        "description": "Key for the telemetry_df in Streamlit session_state"
+                    },
+                    "car_number": {
+                        "type": "integer",
+                        "description": "Car number to generate telemetry summary for"
+                    }
+                },
+                "required": ["telemetry_key", "car_number"]
+            }
+        }
+    },
 ]
 
 # Map tool names to Python functions
@@ -207,6 +248,7 @@ tool_map = {
     "tool_compute_deltas": tool_compute_deltas,
     "tool_time_to_seconds": tool_time_to_seconds,
     "tool_generate_session_summary": tool_generate_session_summary,
+    "tool_telemetry_summary": tool_telemetry_summary,
 }
 
 
