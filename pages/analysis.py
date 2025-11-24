@@ -84,7 +84,7 @@ parquet_file_name = telemetry_map[session_name]
 # =========================================================
 @st.cache_resource(show_spinner="Loading telemetry for this car…")
 def load_car_telemetry(parquet_name: str, car_number: int):
-    minimal_cols = ["timestamp", "vehicle_number", "telemetry_name", "telemetry_value"]
+    minimal_cols = ["timestamp", "vehicle_number", "telemetry_name", "telemetry_value","lap"]
 
     # Load ONLY these columns (memory-safe)
     df = load_parquet_from_supabase_filtered(parquet_name, minimal_cols)
