@@ -13,6 +13,19 @@ from core.summary_weather import render_weather_summary
 from core.summary_telemetry import summarize_telemetry
 from core.summary_deltas import summary_deltas
 
+# Guard: required session_state variables must exist
+required = ["car_number", "laps_file", "weather_file", "sectors_file", "telemetry_session"]
+
+missing = [r for r in required if r not in st.session_state or st.session_state[r] in [None, ""]]
+
+if missing:
+    st.error(
+        "⚠️ Some required data is missing:\n\n"
+        + "\n".join([f"- {m}" for m in missing])
+        + "\n\nPlease return to the upload page and upload all files."
+    )
+    st.stop()
+
 
 # =========================================================
 # 1. TOP-LEVEL CACHED LOADER
