@@ -14,9 +14,6 @@ def telemetry_tool (df: pd.DataFrame, car_number: int):
     Returns:
     - Steerring trace data
     - Breaking smoothness score
-    - Cornering smoothness score
-    - Racing line consistency score (from GPS data)
-
     """
 
     # ----------------------------------------------------------------------------------
