@@ -3,6 +3,8 @@
 # "OK GR"
 Your personal AI-powered coach that draws on your race data to offer tailored insight, custom teaching points and summaries/logs of data to help you reach the podium.
 
+[![Watch the Demo](https://cdn.loom.com/sessions/thumbnails/5dc390561e84453b857ecb536d2cf5c4-00001.png)](https://www.loom.com/embed/5dc390561e84453b857ecb536d2cf5c4)
+
 ## 1. High Level Overview
 ### 1.1 The Problem
 * Most amateur GR-Cup teams lack a dedicated race engineer to analyse data or provide structured coaching.
