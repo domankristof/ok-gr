@@ -176,15 +176,6 @@ with st.expander("📁 Upload CSVs", expanded=True):
         label_visibility="hidden"
     )
     
-    st.markdown("""<h5 style="font-weight:500">Final Results File</h5>""", unsafe_allow_html=True)
-    results_file = st.file_uploader(
-        "results file",
-        type=["csv"],
-        accept_multiple_files=False,
-        key="results_uploader",
-        label_visibility="hidden"
-    )
-    
     st.markdown("""<h5 style="font-weight:500">Sector Timings File</h5>""", unsafe_allow_html=True)
     sectors_file = st.file_uploader(
         "sectors file",
@@ -208,7 +199,6 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 st.session_state.car_number = car_number
                 st.session_state.laps_file = laps_file
                 st.session_state.weather_file = weather_file
-                st.session_state.results_file = results_file
                 st.session_state.sectors_file = sectors_file
                 st.session_state.telemetry_session = telemetry_session
                 
@@ -218,7 +208,7 @@ with st.expander("📁 Upload CSVs", expanded=True):
                 
 
     # Display uploaded files
-    uploaded_files = [f for f in [laps_file, weather_file, results_file, sectors_file] if f is not None]
+    uploaded_files = [f for f in [laps_file, weather_file, sectors_file] if f is not None]
     if uploaded_files:
         st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
         for i, file in enumerate(uploaded_files):
