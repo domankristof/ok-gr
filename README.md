@@ -1,5 +1,7 @@
+<p align="center"> <img src="https://img.shields.io/badge/status-prototype-orange?style=for-the-badge"> <img src="https://img.shields.io/badge/python-3.9-blue?style=for-the-badge"> <img src="https://img.shields.io/badge/Streamlit-Live_App-red?style=for-the-badge"> <img src="https://img.shields.io/badge/AI-GPT_Analysis-green?style=for-the-badge"> </p>
+
 # "OK GR"
-Your personal AI-powered coach that draws on your race data to offer tailored insight, custom teaching points and summaries/logs of data to help you reach the podium. 
+Your personal AI-powered coach that draws on your race data to offer tailored insight, custom teaching points and summaries/logs of data to help you reach the podium.
 
 ## 1. High Level Overview
 ### 1.1 The Problem
