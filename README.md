@@ -19,7 +19,7 @@ Your personal AI-powered coach that draws on your race data to offer tailored in
 ### 1.3 How this Helps the Drivers of the GR-Cup
 * Gives small teams the ability to leverage thier data, as if they had a professional race engineer.
 
-* Provides structured driver coaching and actionable feedback, making all teams more competitve.
+* Provides structured driver coaching and actionable feedback, making all teams more competitive.
 
 * Makes the series more appealing to skilled drivers without large technical teams.
 
@@ -40,7 +40,7 @@ OK-GR currently provides the following visual summaries during a coaching sessio
 ### 2.2 Interactive AI Race Engineer
 A chat interface on the right side of the screen gives you access to your AI race engineer. You can ask questions, request analysis, and receive coaching in natural language.
 
-## 3. Current Functional Capabilties of Your Race Engineer
+## 3. Current Functional Capabilities of Your Race Engineer
 Due to the limited time I had to prototype, GR-Agent currently has only a couple of tools at its disposal (through function calling) to analyse and coach you on your race data. Your race engineer can assist you with:
 
 1. **Telemetry Analysis**
@@ -51,10 +51,10 @@ Due to the limited time I had to prototype, GR-Agent currently has only a couple
 2. **Lap, Delta & Sector Analysis**
     * Sector-by-sector coaching and comparison to leaders
     * Optimal-lap calculation and placement estimates
-    * Identification of biggest performance gains + actionable guidancedriving.
+    * Identification of biggest performance gains + actionable guidance
 
-3. **Creation of a Downloadable Coaching Summart Document**
-      * Coaching summary with actionable insights into improving driving.
+3. **Creation of a Downloadable Coaching Summary Document**
+      * Coaching summary with actionable insights into improving driving
 
 
 ## 4. How to Use OK-GR
