@@ -58,7 +58,7 @@ Due to the limited time I had to prototype, GR-Agent currently has only a couple
 
 
 ## 4. How to Use OK-GR
-1. Download the files from this link: click here
+1. Download the files from this link: [Sample Data](https://drive.google.com/drive/folders/1KajjS65swkorIfH78JdsyuIGXbJhlXNp?usp=sharing)
 
 2. Open the app and go to the upload section.
 
