@@ -144,7 +144,7 @@ h1, h2, h3, h4, h5 { letter-spacing: 0.5px; }
 # ----------------------------
 st.markdown("""
 <div class="banner" style="position: relative; padding-right: 50px;">
-  <span class="badge">Toyota Gazoo Racing</span>
+  <span class="badge">Toyota Gazoo Racing | GR Cup North America</span>
   <img src="https://upload.wikimedia.org/wikipedia/commons/e/e6/Toyota_Gazoo_Racing_emblem.svg"
        style="position: absolute; top: 20px; right: 15px; height: 40px; width: auto;">
   <div style="text-align: left;">
@@ -164,14 +164,3 @@ with c1:
   st.markdown("<div style='height:4rem'></div>", unsafe_allow_html=True)
   if st.button("🚀 Get Started - Upload Your Data", type="primary"):
     st.switch_page("pages/data_upload.py")
-
-
-# ----------------------------
-# Footer
-# ----------------------------
-
-c2 = st.container(width="stretch", vertical_alignment="bottom",horizontal_alignment="center")
-
-with c2:
-  st.markdown('<div class="hr-line"></div>', unsafe_allow_html=True)
-  st.caption("OK GR © — Built for the paddock. Python · Streamlit · Plotly")
